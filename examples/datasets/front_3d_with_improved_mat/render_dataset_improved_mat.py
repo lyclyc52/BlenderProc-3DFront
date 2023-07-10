@@ -53,6 +53,8 @@ def get_folders(args):
     front_3D_texture_folder = Path(args.front_3D_texture_folder)
     cc_material_folder = Path(args.cc_material_folder)
     output_folder = Path(args.output_folder)
+    if not output_folder.exists():
+        output_folder.mkdir()
     return front_folder, future_folder, front_3D_texture_folder, cc_material_folder, output_folder
 
 

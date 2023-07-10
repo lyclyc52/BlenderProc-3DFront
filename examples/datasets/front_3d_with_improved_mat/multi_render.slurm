@@ -32,5 +32,5 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-conda activate DL-base
-python examples/datasets/front_3d_with_improved_mat/multi_render.py examples/datasets/front_3d_with_improved_mat/render_dataset_improved_mat.py ./examples/datasets/front_3d/3D-FRONT ./examples/datasets/front_3d/3D-FUTURE-model ./examples/datasets/front_3d/3D-FRONT-texture ./resources/cctextures/ ./examples/datasets/front_3d_with_improved_mat/renderings --n_processes 4
+conda activate blenderproc
+python examples/datasets/front_3d_with_improved_mat/multi_render.py examples/datasets/front_3d_with_improved_mat/render_dataset_improved_mat.py ./examples/datasets/front_3d_with_improved_mat/3D-FRONT ./examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model ./examples/datasets/front_3d_with_improved_mat/3D-FRONT-texture ./resources/cctextures/ ./examples/datasets/front_3d_with_improved_mat/renderings --n_processes 1

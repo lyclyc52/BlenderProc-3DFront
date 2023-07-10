@@ -22,7 +22,7 @@ If you want to assign object poses to a specific frame `i`, you can make use of 
 
 ## Debugging
 
-To inspect which keyframes are actually set, it is possible to view them in BlenderProcs debug mode (Read the [quick start](../../README.md#quickstart) to find out how to get into debug mode).
+To inspect which keyframes are actually set, it is possible to view them in BlenderProcs debug mode (Read the [quick start](../../README_BlenderProc2.md#quickstart) to find out how to get into debug mode).
 After running you script in debug mode switch to the `Layout` tab:
 
 In the layout tab you should see the `Timeline` area in the lower half of blender. 

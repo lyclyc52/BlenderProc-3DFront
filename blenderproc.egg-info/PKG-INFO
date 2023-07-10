@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: blenderproc
+Version: 2.2.0
+Home-page: https://github.com/DLR-RM/BlenderProc
+Author: German Aerospace Center (DLR) - Institute of Robotics and Mechatronics (RM)
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# BlenderProc2 for 3D-Front
+Support BlenderProc2 with **batch rendering** and **3D visualization** for the 3D-Front dataset.
+
+If you feel struggled in rendering 3D-Front or visualizing its 3D assets in an interactive way. Here I built a solution based on [BlenderProc2](https://github.com/DLR-RM/BlenderProc) and [VTK](https://vtk.org/).
+
+---
+
+### Install
+
+```python
+conda create -n blenderproc python=3.8
+conda activate blenderproc
+```
