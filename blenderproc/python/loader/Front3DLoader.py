@@ -17,7 +17,7 @@ from blenderproc.python.loader.TextureLoader import load_texture
 
 
 def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: str, label_mapping: LabelIdMapping,
-                 ceiling_light_strength: float = 0.8, lamp_light_strength: float = 7.0) -> List[MeshObject]:
+                 model_id_to_label: dict, ceiling_light_strength: float = 0.8, lamp_light_strength: float = 7.0) -> List[MeshObject]:
     """ Loads the 3D-Front scene specified by the given json file.
 
     :param json_path: Path to the json file, where the house information is stored.
@@ -49,7 +49,8 @@ def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: 
     created_objects = Front3DLoader._create_mesh_objects_from_file(data, front_3D_texture_path,
                                                                    ceiling_light_strength, label_mapping, json_path)
 
-    all_loaded_furniture = Front3DLoader._load_furniture_objs(data, future_model_path, lamp_light_strength, label_mapping)
+    all_loaded_furniture = Front3DLoader._load_furniture_objs(data, future_model_path, lamp_light_strength,
+                                                              label_mapping, model_id_to_label)
 
     created_objects += Front3DLoader._move_and_duplicate_furniture(data, all_loaded_furniture)
 
@@ -147,6 +148,8 @@ class Front3DLoader:
         used_materials_based_on_color = {}
         # materials based on texture to avoid recreating the same material over and over
         used_materials_based_on_texture = {}
+
+        mesh_id = -1
         for mesh_data in data["mesh"]:
             # extract the obj name, which also is used as the category_id name
             used_obj_name = mesh_data["type"].strip()
@@ -160,6 +163,10 @@ class Front3DLoader:
             created_objects.append(obj)
 
             # set two custom properties, first that it is a 3D_future object and second the category_id
+            mesh_id += 1
+            obj.set_cp("uid", mesh_data["uid"])
+            obj.set_cp("jid", mesh_data["jid"])
+            obj.set_cp("inst_mark", "layout_" + str(mesh_id))
             obj.set_cp("is_3D_future", True)
             obj.set_cp("category_id", label_mapping.id_from_label(used_obj_name.lower()))
 
@@ -295,7 +302,8 @@ class Front3DLoader:
         return created_objects
 
     @staticmethod
-    def _load_furniture_objs(data: dict, future_model_path: str, lamp_light_strength: float, label_mapping: LabelIdMapping) -> List[MeshObject]:
+    def _load_furniture_objs(data: dict, future_model_path: str, lamp_light_strength: float,
+                             label_mapping: LabelIdMapping, model_id_to_label: dict) -> List[MeshObject]:
         """
         Load all furniture objects specified in the json file, these objects are stored as "raw_model.obj" in the
         3D_future_model_path. For lamp the lamp_light_strength value can be changed via the config.
@@ -310,6 +318,10 @@ class Front3DLoader:
         all_objs = []
         # for each furniture element
         for ele in data["furniture"]:
+            if "valid" not in ele or not ele["valid"]:
+                continue
+            # get furniture category as obj name
+            used_obj_name = model_id_to_label[ele['jid']]
             # create the paths based on the "jid"
             folder_path = os.path.join(future_model_path, ele["jid"])
             obj_file = os.path.join(folder_path, "raw_model.obj")
@@ -318,27 +330,18 @@ class Front3DLoader:
             if os.path.exists(obj_file) and not "7e101ef3-7722-4af8-90d5-7c562834fabd" in obj_file:
                 # load all objects from this .obj file
                 objs = load_obj(filepath=obj_file)
-                # extract the name, which serves as category id
-                used_obj_name = ""
-                if "category" in ele:
-                    used_obj_name = ele["category"]
-                elif "title" in ele:
-                    used_obj_name = ele["title"]
-                    if "/" in used_obj_name:
-                        used_obj_name = used_obj_name.split("/")[0]
-                if used_obj_name == "":
-                    used_obj_name = "others"
                 for obj in objs:
                     obj.set_name(used_obj_name)
                     # add some custom properties
                     obj.set_cp("uid", ele["uid"])
+                    obj.set_cp("jid", ele["jid"])
                     # this custom property determines if the object was used before
                     # is needed to only clone the second appearance of this object
                     obj.set_cp("is_used", False)
                     obj.set_cp("is_3D_future", True)
                     obj.set_cp("type", "Non-Object")  # is an non object used for the interesting score
                     # set the category id based on the used obj name
-                    obj.set_cp("category_id", label_mapping.id_from_label(used_obj_name.lower()))
+                    obj.set_cp("category_id", label_mapping.id_from_label(used_obj_name))
                     # walk over all materials
                     for mat in obj.get_materials():
                         if mat is None:
@@ -391,11 +394,13 @@ class Front3DLoader:
         blender_rot_mat = mathutils.Matrix.Rotation(radians(-90), 4, 'X')
         created_objects = []
         # for each room
+        mesh_id = -1
         for room_id, room in enumerate(data["scene"]["room"]):
             # for each object in that room
             for child in room["children"]:
                 if "furniture" in child["instanceid"]:
                     # find the object where the uid matches the child ref id
+                    mesh_id += 1
                     for obj in all_loaded_furniture:
                         if obj.get_cp("uid") == child["ref"]:
                             # if the object was used before, duplicate the object and move that duplicated obj
@@ -405,13 +410,15 @@ class Front3DLoader:
                                 # if it is the first time use the object directly
                                 new_obj = obj
                             created_objects.append(new_obj)
+                            new_obj.set_cp("inst_mark", 'furniture_' + str(mesh_id))
                             new_obj.set_cp("is_used", True)
-                            new_obj.set_cp("room_id", room_id)
+                            new_obj.set_cp("room_id", room['instanceid'])
                             new_obj.set_cp("type", "Object")  # is an object used for the interesting score
                             new_obj.set_cp("coarse_grained_class", new_obj.get_cp("category_id"))
                             # this flips the y and z coordinate to bring it to the blender coordinate system
                             new_obj.set_location(mathutils.Vector(child["pos"]).xzy)
                             new_obj.set_scale(child["scale"])
+                            new_obj.blender_obj.scale.x = -1 * new_obj.blender_obj.scale.x
                             # extract the quaternion and convert it to a rotation matrix
                             rotation_mat = mathutils.Quaternion(child["rot"]).to_euler().to_matrix().to_4x4()
                             # transform it into the blender coordinate system and then to an euler

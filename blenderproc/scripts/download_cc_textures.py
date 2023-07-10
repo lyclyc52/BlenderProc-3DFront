@@ -1,3 +1,4 @@
+from blenderproc.python.utility.SetupUtility import SetupUtility
 from sys import version_info, path
 if version_info.major == 2:
     raise Exception("This script only works with python3.x!")
@@ -6,8 +7,9 @@ import os
 import csv
 import requests
 import argparse
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
-from blenderproc.python.utility.SetupUtility import SetupUtility
 
 def cli():
     parser = argparse.ArgumentParser("Downloads textures from cc0textures.com")

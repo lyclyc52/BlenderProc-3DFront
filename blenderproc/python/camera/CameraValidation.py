@@ -7,6 +7,7 @@ import numpy as np
 from mathutils import Matrix
 from mathutils.bvhtree import BVHTree
 from typing import Union, List, Set
+from math import log, e
 
 from blenderproc.python.types.MeshObjectUtility import MeshObject
 
@@ -156,7 +157,29 @@ def visible_objects(cam2world_matrix: Union[Matrix, np.ndarray], sqrt_number_of_
     return visible_objects
 
 
-def scene_coverage_score(cam2world_matrix: Union[Matrix, np.ndarray], special_objects: list = None, special_objects_weight: float = 2, sqrt_number_of_rays: int = 10) -> float:
+def entropy(labels, num_of_rays, base=e):
+    """ Computes entropy of label distribution. """
+
+    if len(labels) <= 1:
+        return 0
+
+    _, counts = np.unique(labels, return_counts=True)
+    probs = counts / num_of_rays
+    n_classes = np.count_nonzero(probs)
+
+    if n_classes <= 1:
+        return 0
+
+    ent = 0.
+
+    # Compute entropy
+    for i in probs:
+        ent -= i * log(i, base)
+
+    return ent
+
+
+def scene_coverage_score(cam2world_matrix: Union[Matrix, np.ndarray], special_objects: Union[List[int], Set[int]] = None, special_objects_weight: Union[float, dict] = 2., sqrt_number_of_rays: int = 10) -> float:
     """ Evaluate the interestingness/coverage of the scene.
 
     This module tries to look at as many objects at possible, this might lead to
@@ -177,6 +200,11 @@ def scene_coverage_score(cam2world_matrix: Union[Matrix, np.ndarray], special_ob
 
     if special_objects is None:
         special_objects = []
+    special_objects = set(special_objects)
+
+    if isinstance(special_objects_weight, float):
+        special_objects_weight = {class_id: special_objects_weight for class_id in special_objects}
+
     cam_ob = bpy.context.scene.camera
     cam = cam_ob.data
 
@@ -209,33 +237,34 @@ def scene_coverage_score(cam2world_matrix: Union[Matrix, np.ndarray], special_ob
                     # wall, floor and ceiling objects have 0 score
                     if "coarse_grained_class" in hit_object:
                         object_class = hit_object["coarse_grained_class"]
-                        objects_hit[object_class] += 1
                         if object_class in special_objects:
-                            score += special_objects_weight
+                            current_score = special_objects_weight[object_class]
                         else:
-                            score += 1
+                            current_score = 1
+                        if current_score:
+                            objects_hit[hit_object['inst_mark']] += 1
+                        score += current_score
                     else:
                         score += 1
                 elif "category_id" in hit_object:
                     object_class = hit_object["category_id"]
                     if object_class in special_objects:
-                        score += special_objects_weight
+                        current_score = special_objects_weight[object_class]
                     else:
-                        score += 1
-                    objects_hit[object_class] += 1
+                        current_score = 1
+                    if current_score:
+                        objects_hit[hit_object['inst_mark']] += 1
+                    score += current_score
                 else:
-                    objects_hit[hit_object] += 1
+                    objects_hit[hit_object['inst_mark']] += 1
                     score += 1
-    # For a scene with three different objects, the starting variance is 1.0, increases/decreases by '1/3' for
-    # each object more/less, excluding floor, ceiling and walls
-    scene_variance = len(objects_hit) / 3.0
-    for object_hit_value in objects_hit.values():
-        # For an object taking half of the scene, the scene_variance is halved, this penalizes non-even
-        # distribution of the objects in the scene
-        scene_variance *= 1.0 - object_hit_value / float(num_of_rays)
+
+    hit_stat = []
+    for obj_name, hit_count in objects_hit.items():
+        hit_stat.extend([obj_name] * hit_count)
+    scene_variance = entropy(hit_stat, num_of_rays, 2)
     score = scene_variance * (score / float(num_of_rays))
     return score
-
 
 def decrease_interest_score(interest_score: float, min_interest_score: float, interest_score_step: float):
     """ Decreases the interest scores in the given interval

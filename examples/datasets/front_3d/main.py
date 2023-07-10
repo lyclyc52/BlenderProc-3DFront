@@ -2,6 +2,8 @@ import blenderproc as bproc
 import argparse
 import os
 import numpy as np
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
 
 parser = argparse.ArgumentParser()
@@ -67,12 +69,14 @@ while tries < 10000 and poses < 10:
         poses += 1
     tries += 1
 
-# Also render normals
-bproc.renderer.enable_normals_output()
+# # Also render normals
+# bproc.renderer.enable_normals_output()
 
 # render the whole pipeline
 data = bproc.renderer.render()
-data.update(bproc.renderer.render_segmap(map_by="class"))
+default_values = {"location": [0, 0, 0], "cp_uid": '', "cp_jid": '', "cp_room_id": ""}
+data.update(bproc.renderer.render_segmap(map_by=["instance", "class", "cp_uid", "cp_jid", "cp_room_id", "location"],
+                                         default_values=default_values))
 
 # write the data to a .hdf5 container
 bproc.writer.write_hdf5(args.output_dir, data)

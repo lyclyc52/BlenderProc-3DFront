@@ -153,8 +153,8 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
                             if current_attribute in default_values:
                                 default_value = default_values[current_attribute]
                             elif attribute in default_values:
-                                default_value = default_values[attribute]                        
-                        # iterate over all object ids
+                                default_value = default_values[attribute]
+                                # iterate over all object ids
                         for object_id in object_ids:
                             # Convert np.uint8 to int, such that the save_in_csv_attributes dict can later be serialized
                             object_id = int(object_id)
@@ -182,7 +182,7 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
                                 raise Exception("The obj: {} does not have the "
                                                 "attribute: {}, striped: {}. Maybe try a default "
                                                 "value.".format(current_obj.name, current_attribute, attribute))
-                            
+
                             # save everything which is not instance also in the .csv
                             if isinstance(value, (int, float, np.integer, np.floating)):
                                 was_used = True
@@ -192,7 +192,7 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
                                 save_in_csv_attributes[object_id][attribute] = value
                             else:
                                 save_in_csv_attributes[object_id] = {attribute: value}
-                                
+
                     if was_used and num_default_values < len(object_ids):
                         channels.append(org_attribute)
                         combined_result_map.append(resulting_map)
