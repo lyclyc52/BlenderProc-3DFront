@@ -8,7 +8,7 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
 ---
 
 ### Install
-1. Use conda to deploy the environment by
+1. Use [conda](https://docs.conda.io/en/latest/miniconda.html) to deploy the environment by
     ```python
     conda create -n blenderproc python=3.8
     conda activate blenderproc
