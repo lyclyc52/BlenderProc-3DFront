@@ -13,7 +13,7 @@ If you feel struggled in rendering 3D-Front or visualizing its 3D assets for you
 Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all the functions in BlenderProc2.
 
 #### 3D visualization
-|                                Pointcloud                                |                             Layout & Camera                              |                 CAD models + Oriented Bounding boxes                 |
+|                                Pointcloud                                |                          Layout & Camera Poses                           |                 CAD models + Oriented Bounding Boxes                 |
 |:------------------------------------------------------------------------:|:------------------------------------------------------------------------:|:--------------------------------------------------------------------:|
 | <img src="images/BlenderProc_3DFront/scene1/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/models.png" width="800"> |
 | <img src="images/BlenderProc_3DFront/scene2/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/models.png" width="800"> |
