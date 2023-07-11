@@ -53,7 +53,7 @@ def get_point_cloud(depth_maps, cam_K, cam_RTs, rgb_imgs=None):
     '''
     point_list_canonical = []
     color_intensities = []
-    cam_RTs = cam_RTs.copy()
+    cam_RTs = np.copy(cam_RTs)
     if not isinstance(rgb_imgs, np.ndarray) and not isinstance(rgb_imgs, List):
         rgb_imgs = 32*np.ones([depth_maps.shape[0], depth_maps.shape[1], depth_maps.shape[2], 3], dtype=np.uint8)
 
@@ -139,8 +139,8 @@ class VIS_3DFRONT(VIS_BASE):
         if 'pointcloud' in kwargs['type']:
             for pointcloud, color in zip(self.pointcloud['points'], self.pointcloud['colors']):
                 point_actor = self.set_actor(self.set_mapper(self.set_points_property(pointcloud, color), 'box'))
-                point_actor.GetProperty().SetPointSize(1)
-                point_actor.GetProperty().SetOpacity(0.3)
+                point_actor.GetProperty().SetPointSize(2)
+                point_actor.GetProperty().SetOpacity(0.5)
                 point_actor.GetProperty().SetInterpolationToPBR()
                 renderer.AddActor(point_actor)
 
