@@ -4,25 +4,27 @@ Support BlenderProc2 with **multi-GPU batch rendering** and **3D visualization**
 If you feel struggled in rendering 3D-Front or visualizing its 3D assets for your tasks. Here is a solution based on [BlenderProc2](https://github.com/DLR-RM/BlenderProc) and [VTK](https://vtk.org/).
 
 #### 2D rendering
-|                             RGB                              |                            Depth                             |                         Semantics                          |                          Instances                          |
-|:------------------------------------------------------------:|:------------------------------------------------------------:|:----------------------------------------------------------:|:-----------------------------------------------------------:|
-| <img src="images/blenderproc_3dfront_color.jpg" width="500"> | <img src="images/blenderproc_3dfront_depth.jpg" width="500"> | <img src="images/blenderproc_3dfront_sem.jpg" width="500"> | <img src="images/blenderproc_3dfront_inst.jpg" width="500"> | 
+|                                 RGB                                 |                                Depth                                |                             Semantics                             |                             Instances                              |
+|:-------------------------------------------------------------------:|:-------------------------------------------------------------------:|:-----------------------------------------------------------------:|:------------------------------------------------------------------:|
+| <img src="images/BlenderProc_3DFront/scene1/color.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene1/depth.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene1/sem.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene1/inst.jpg" width="500"> |
+| <img src="images/BlenderProc_3DFront/scene2/color.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene2/depth.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene2/sem.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene2/inst.jpg" width="500"> |
 
 
 Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all the functions in BlenderProc2.
 
 #### 3D visualization
-|                  Pointcloud                   |                Layout & Camera                |   CAD models + Oriented Bounding boxes    |
-|:---------------------------------------------:|:---------------------------------------------:|:-----------------------------------------:|
-| <img src="images/pointcloud.png" width="800"> | <img src="images/layout_cam.png" width="800"> | <img src="images/models.png" width="800"> | 
-
+|                                Pointcloud                                |                             Layout & Camera                              |                 CAD models + Oriented Bounding boxes                 |
+|:------------------------------------------------------------------------:|:------------------------------------------------------------------------:|:--------------------------------------------------------------------:|
+| <img src="images/BlenderProc_3DFront/scene1/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/models.png" width="800"> |
+| <img src="images/BlenderProc_3DFront/scene2/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/models.png" width="800"> |
+(*Note*: X server required for 3D visualization)
 
 ---
 
 ### Install
 1. Use [conda](https://docs.conda.io/en/latest/miniconda.html) to deploy the environment by
-    ```python
-    conda create -n blenderproc python=3.8
+    ```commandline
+    conda env create -f environment.yml
     conda activate blenderproc
     pip install -e .
     ```
@@ -43,14 +45,14 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
 ### Render
 1. **Single scene rendering**
 
-   Here we take the scene ID `baf392b9-fb6f-4a9d-ab29-f542e0f80045.json` as an example. We can do multi-view renderings by running the script as follows:  
+   Here we take the scene ID `6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9.json` as an example. We can do multi-view renderings by running the script as follows:  
    ```commandline
    blenderproc run \
    examples/datasets/front_3d_with_improved_mat/render_dataset_improved_mat.py \
    examples/datasets/front_3d_with_improved_mat/3D-FRONT \
    examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model \
    examples/datasets/front_3d_with_improved_mat/3D-FRONT-texture \
-   baf392b9-fb6f-4a9d-ab29-f542e0f80045.json \
+   6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9.json \
    resources/cctextures/ \
    examples/datasets/front_3d_with_improved_mat/renderings
    ```
@@ -77,5 +79,42 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
    * You can still customize your rendering pipeline by modifying `render_dataset_improved_mat.py`. 
    * If you have multiple GPUs and want to render in parallel, change `n_processes` to your GPU number. 
 
-Citations:
-ATISS, My work, BlenderProc
+---
+### Visualization
+After rendering a scene, please run the following code for 2D and 3D visualizations
+```commandline
+python visualization/front3d/vis_front3d.py --json_file 6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9.json
+```
+
+### Citation 
+Some parts of this code base is developed based on the following works. If you find our work helpful, please consider citing
+```
+@inproceedings{nie2023learning,
+  title={Learning 3d scene priors with 2d supervision},
+  author={Nie, Yinyu and Dai, Angela and Han, Xiaoguang and Nie{\ss}ner, Matthias},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={792--802},
+  year={2023}
+}
+
+@article{Denninger2023, 
+    doi = {10.21105/joss.04901},
+    url = {https://doi.org/10.21105/joss.04901},
+    year = {2023},
+    publisher = {The Open Journal}, 
+    volume = {8},
+    number = {82},
+    pages = {4901}, 
+    author = {Maximilian Denninger and Dominik Winkelbauer and Martin Sundermeyer and Wout Boerdijk and Markus Knauer and Klaus H. Strobl and Matthias Humt and Rudolph Triebel},
+    title = {BlenderProc2: A Procedural Pipeline for Photorealistic Rendering}, 
+    journal = {Journal of Open Source Software}
+} 
+
+@InProceedings{Paschalidou2021NEURIPS,
+  author = {Despoina Paschalidou and Amlan Kar and Maria Shugrina and Karsten Kreis and Andreas Geiger
+  and Sanja Fidler},
+  title = {ATISS: Autoregressive Transformers for Indoor Scene Synthesis},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year = {2021}
+}
+```
