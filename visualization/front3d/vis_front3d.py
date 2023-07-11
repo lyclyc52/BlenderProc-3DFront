@@ -42,7 +42,10 @@ if __name__ == '__main__':
     cam_Ts = []
     class_maps = []
     instance_attrs = []
-    for render_path in scene_render_dir.iterdir():
+    n_count = 12
+    for r_idx, render_path in enumerate(scene_render_dir.iterdir()):
+        if r_idx >= n_count:
+            break
         with h5py.File(render_path) as f:
             colors = np.array(f["colors"])[:,::-1]
             depth = np.array(f["depth"])[:, ::-1]
@@ -108,14 +111,15 @@ if __name__ == '__main__':
     for rm in d.rooms:
         layout_boxes.append(rm.layout_box)
 
-    viser_2D = VIS_3DFRONT_2D(color_maps=room_imgs, depth_maps=room_depths, inst_info=instance_attrs, cls_maps=class_maps,
-                              class_names=dataset_config.label_names)
+    # viser_2D = VIS_3DFRONT_2D(color_maps=room_imgs, depth_maps=room_depths, inst_info=instance_attrs, cls_maps=class_maps,
+    #                           class_names=dataset_config.label_names)
+    #
+    # viser_2D.draw_colors()
+    # viser_2D.draw_depths()
+    # viser_2D.draw_cls_maps()
+    # viser_2D.draw_inst_maps(type=('mask'))
 
-    viser_2D.draw_colors()
-    viser_2D.draw_depths()
-    viser_2D.draw_cls_maps()
-    viser_2D.draw_inst_maps(type=('mask'))
-
-    viser = VIS_3DFRONT(rooms=d.rooms, cam_K=cam_K, cam_Ts=cam_Ts, inst_info=instance_attrs, layout_boxes=layout_boxes,
+    viser = VIS_3DFRONT(rooms=d.rooms, cam_K=cam_K, cam_Ts=cam_Ts, color_maps=room_imgs, depth_maps=room_depths,
+                        inst_info=instance_attrs, layout_boxes=layout_boxes,
                         class_names=dataset_config.label_names)
-    viser.visualize(view_id=0, type=['mesh', 'bbox', 'layout_box', 'cam_pose'])
+    viser.visualize(view_id=0, type=['pointcloud', 'mesh', 'bbox', 'layout_box', 'cam_pose', 'ori_layout'])
