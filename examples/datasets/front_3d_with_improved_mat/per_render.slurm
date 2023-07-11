@@ -32,4 +32,4 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 conda activate blenderproc
-blenderproc run examples/datasets/front_3d_with_improved_mat/render_dataset_improved_mat.py ./examples/datasets/front_3d_with_improved_mat/3D-FRONT ./examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model ./examples/datasets/front_3d_with_improved_mat/3D-FRONT-texture baf392b9-fb6f-4a9d-ab29-f542e0f80045.json ./resources/cctextures/  examples/datasets/front_3d_with_improved_mat/renderings
+blenderproc run examples/datasets/front_3d_with_improved_mat/render_dataset_improved_mat.py ./examples/datasets/front_3d_with_improved_mat/3D-FRONT ./examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model ./examples/datasets/front_3d_with_improved_mat/3D-FRONT-texture 6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9.json ./resources/cctextures/  examples/datasets/front_3d_with_improved_mat/renderings

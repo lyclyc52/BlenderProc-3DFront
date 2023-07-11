@@ -232,7 +232,8 @@ if __name__ == '__main__':
                         cam_Ts.append(cam2world_matrix)
 
             # render the whole pipeline
-            # bproc.renderer.enable_depth_output(activate_antialiasing=False)
+            # bproc.renderer.enable_normals_output()
+            bproc.renderer.enable_depth_output(activate_antialiasing=False)
             data = bproc.renderer.render()
             default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '', "cp_room_id": ""}
             data.update(bproc.renderer.render_segmap(

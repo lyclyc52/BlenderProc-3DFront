@@ -42,7 +42,8 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
    examples/datasets/front_3d_with_improved_mat/renderings
    ```
    * The rendering results will be saved in `examples/datasets/front_3d_with_improved_mat/renderings`. 
-   * You can also customize your *camera FOV*, *rendering resolution* and *number of views*, etc. in `render_dataset_improved_mat.py`. Just dive deeper and play with it. 
+   * You can also customize your *camera FOV*, *rendering resolution* and *number of views*, etc. in `render_dataset_improved_mat.py`. Just dive deeper and play with it.
+   * You can also output normal maps or depth maps by uncomment `bproc.renderer.enable_normals_output()` and `bproc.renderer.enable_depth_output(activate_antialiasing=False)`.
    * I customized the camera pose sampling function to support multi-view renderings. The sampling strategy ensures every camera pose has a reasonable object surface coverage.
    * The number of camera poses in a room is proportional to the ratio of its floor area to the whole apartment. Default camera pose number is 100 per apartment.
 
