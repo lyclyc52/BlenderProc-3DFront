@@ -10,15 +10,18 @@ If you feel struggled in rendering 3D-Front or visualizing its 3D assets for you
 | <img src="images/BlenderProc_3DFront/scene2/color.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene2/depth.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene2/sem.jpg" width="500"> | <img src="images/BlenderProc_3DFront/scene2/inst.jpg" width="500"> |
 
 
-Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all the functions in BlenderProc2.
-
 #### 3D visualization
 |                                Pointcloud                                |                          Layout & Camera Poses                           |                 CAD models + Oriented Bounding Boxes                 |
 |:------------------------------------------------------------------------:|:------------------------------------------------------------------------:|:--------------------------------------------------------------------:|
 | <img src="images/BlenderProc_3DFront/scene1/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/models.png" width="800"> |
 | <img src="images/BlenderProc_3DFront/scene2/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/models.png" width="800"> |
 
-(*Note*: X server required for 3D visualization)
+*Note*:
+* X server required for 3D visualization.
+* [Open-GL camera setting](http://www.songho.ca/opengl/gl_camera.html) is used.
+
+
+Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all the functions in BlenderProc2.
 
 ---
 
