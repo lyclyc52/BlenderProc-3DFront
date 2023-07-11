@@ -134,6 +134,15 @@ class VIS_3DFRONT(VIS_BASE):
             fov_y = (2 * np.arctan((self.cam_K[1][2] * 2 + 1) / 2. / self.cam_K[1][1])) / np.pi * 180
             camera = self.set_camera(cam_loc, cam_fp, cam_up, fov_y=fov_y)
             renderer.SetActiveCamera(camera)
+        else:
+            cam_loc = np.array([0, 9, 0])
+            cam_forward_vec = np.array([0, -1, 0])
+            cam_fp = cam_loc + cam_forward_vec
+            cam_up = np.array([0, 0, 1])
+            fov_y = (2 * np.arctan((self.cam_K[1][2] * 2 + 1) / 2. / self.cam_K[1][1])) / np.pi * 180
+            camera = self.set_camera(cam_loc, cam_fp, cam_up, fov_y=fov_y)
+            renderer.SetActiveCamera(camera)
+
 
         '''draw camera positions'''
         if 'pointcloud' in kwargs['type']:
@@ -232,7 +241,7 @@ class VIS_3DFRONT(VIS_BASE):
             for ceiling in self.ceilings:
                 ceiling_prop = self.set_polygon_property(ceiling[0], ceiling[1])
                 ceiling_actor = self.set_actor(self.set_mapper(ceiling_prop, 'box'))
-                ceiling_actor.GetProperty().SetOpacity(0.2)
+                ceiling_actor.GetProperty().SetOpacity(0.4)
                 ceiling_actor.GetProperty().SetInterpolationToPBR()
                 renderer.AddActor(ceiling_actor)
 
@@ -240,7 +249,7 @@ class VIS_3DFRONT(VIS_BASE):
             for wall in self.walls:
                 wall_prop = self.set_polygon_property(wall[0], wall[1])
                 wall_actor = self.set_actor(self.set_mapper(wall_prop, 'box'))
-                wall_actor.GetProperty().SetOpacity(0.2)
+                wall_actor.GetProperty().SetOpacity(0.4)
                 wall_actor.GetProperty().SetInterpolationToPBR()
                 renderer.AddActor(wall_actor)
 

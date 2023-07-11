@@ -1,9 +1,21 @@
 # BlenderProc2 for 3D-Front
 Support BlenderProc2 with **multi-GPU batch rendering** and **3D visualization** for the 3D-Front dataset.
 
-If you feel struggled in rendering 3D-Front or visualizing its 3D assets for your tasks. Here I built a solution based on [BlenderProc2](https://github.com/DLR-RM/BlenderProc) and [VTK](https://vtk.org/).
+If you feel struggled in rendering 3D-Front or visualizing its 3D assets for your tasks. Here is a solution based on [BlenderProc2](https://github.com/DLR-RM/BlenderProc) and [VTK](https://vtk.org/).
+
+#### 2D rendering
+|                             RGB                              |                            Depth                             |                         Semantics                          |                          Instances                          |
+|:------------------------------------------------------------:|:------------------------------------------------------------:|:----------------------------------------------------------:|:-----------------------------------------------------------:|
+| <img src="images/blenderproc_3dfront_color.jpg" width="500"> | <img src="images/blenderproc_3dfront_depth.jpg" width="500"> | <img src="images/blenderproc_3dfront_sem.jpg" width="500"> | <img src="images/blenderproc_3dfront_inst.jpg" width="500"> | 
+
 
 Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all the functions in BlenderProc2.
+
+#### 3D visualization
+|                  Pointcloud                   |                Layout & Camera                |   CAD models + Oriented Bounding boxes    |
+|:---------------------------------------------:|:---------------------------------------------:|:-----------------------------------------:|
+| <img src="images/pointcloud.png" width="800"> | <img src="images/layout_cam.png" width="800"> | <img src="images/models.png" width="800"> | 
+
 
 ---
 
@@ -26,7 +38,8 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
    ```commandline
    BlenderProc/blenderproc/scripts/download_cc_textures.py
    ```
-   
+
+---
 ### Render
 1. **Single scene rendering**
 
@@ -63,8 +76,6 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
    * The rendering results will be saved in `examples/datasets/front_3d_with_improved_mat/renderings`.
    * You can still customize your rendering pipeline by modifying `render_dataset_improved_mat.py`. 
    * If you have multiple GPUs and want to render in parallel, change `n_processes` to your GPU number. 
-   
-  
- 
-  
-   
+
+Citations:
+ATISS, My work, BlenderProc
