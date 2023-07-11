@@ -17,8 +17,8 @@ If you feel struggled in rendering 3D-Front or visualizing its 3D assets for you
 | <img src="images/BlenderProc_3DFront/scene2/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/models.png" width="800"> |
 
 *Note*:
-* X server required for 3D visualization.
-* [Open-GL camera setting](http://www.songho.ca/opengl/gl_camera.html) is used.
+* X server is required for 3D visualization.
+* [OpenGL camera setting](http://www.songho.ca/opengl/gl_camera.html) is used.
 
 
 Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all the functions in BlenderProc2.
