@@ -17,6 +17,7 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
 |:------------------------------------------------------------------------:|:------------------------------------------------------------------------:|:--------------------------------------------------------------------:|
 | <img src="images/BlenderProc_3DFront/scene1/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene1/models.png" width="800"> |
 | <img src="images/BlenderProc_3DFront/scene2/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/models.png" width="800"> |
+
 (*Note*: X server required for 3D visualization)
 
 ---
