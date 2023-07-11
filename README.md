@@ -28,6 +28,7 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
 ### Install
 1. Use [conda](https://docs.conda.io/en/latest/miniconda.html) to deploy the environment by
     ```commandline
+    cd BlenderProc-3DFront
     conda env create -f environment.yml
     conda activate blenderproc
     pip install -e .
@@ -42,7 +43,7 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
 
 3. Download textures data from [link](https://ambientcg.com/) by
    ```commandline
-   BlenderProc/blenderproc/scripts/download_cc_textures.py
+   blenderproc/scripts/download_cc_textures.py
    ```
 
 ---
