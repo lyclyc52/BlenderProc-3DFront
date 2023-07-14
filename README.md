@@ -40,7 +40,11 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
    examples/datasets/front_3d_with_improved_mat/3D-FRONT-texture
    examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model
     ```
-
+   Move our improved 3D-Future `model_info.json` to the `3D-FUTURE-model` folder by
+   ```
+   mv examples/datasets/front_3d_with_improved_mat/model_info_revised.json examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model
+   ```
+   
 3. Download textures data from [link](https://ambientcg.com/) by
    ```commandline
    blenderproc/scripts/download_cc_textures.py
