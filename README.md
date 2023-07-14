@@ -95,6 +95,9 @@ After rendering a scene, please run the following code for 2D and 3D visualizati
 python visualization/front3d/vis_front3d.py --json_file 6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9.json
 ```
 
+### How to Debug?
+Please refer to [link](https://github.com/DLR-RM/BlenderProc#breakpoint-debugging-in-ides) if you want to debug with your IDE. 
+
 ### Citation 
 Some parts of this code base is developed based on the following works. If you find our work helpful, please consider citing
 ```
