@@ -33,6 +33,7 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
     conda activate blenderproc
     pip install -e .
     ```
+   *Note: BlenderProc installed [blender-3.0.0-linux-x64](https://download.blender.org/release/Blender3.0/) in `/home/USERNAME/blender/blender-3.0.0-linux-x64`. We would also recommend you to use this Blender version.*.
 
 2. Apply for the [3D-Front dataset](https://tianchi.aliyun.com/specials/promotion/alibaba-3d-scene-dataset). Download all the data and link them to the local directory as follows:
     ```
