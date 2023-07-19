@@ -52,7 +52,7 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
 
 ---
 ### Render
-Since I use Ubuntu system, BlenderProc will automatically install [blender-3.0.0-linux-x64](https://download.blender.org/release/Blender3.0/) in `/home/USERNAME/blender/blender-3.0.0-linux-x64`. If you meet any problem, here I provide my [Blender version](https://drive.google.com/file/d/1VUCrSFP_lzMPYAJ9Z-2nfhYRP2t4YTez/view?usp=sharing). Please download to the same folder.  
+Since I use Ubuntu system, BlenderProc will automatically install [blender-3.0.0-linux-x64](https://download.blender.org/release/Blender3.0/) in `/home/USERNAME/blender/blender-3.0.0-linux-x64`. In any case you meet any problems or bugs, here I provide my [Blender version](https://drive.google.com/file/d/1VUCrSFP_lzMPYAJ9Z-2nfhYRP2t4YTez/view?usp=sharing). Please download to the same folder before rendering.  
 
 1. **Single scene rendering**
 
