@@ -1,8 +1,0 @@
-setuptools
-pyyaml
-requests
-matplotlib
-numpy
-Pillow
-h5py
-progressbar

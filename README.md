@@ -33,7 +33,6 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
     conda activate blenderproc
     pip install -e .
     ```
-   *Note: BlenderProc installed [blender-3.0.0-linux-x64](https://download.blender.org/release/Blender3.0/) in `/home/USERNAME/blender/blender-3.0.0-linux-x64`. We would also recommend you to use this Blender version.*.
 
 2. Apply for the [3D-Front dataset](https://tianchi.aliyun.com/specials/promotion/alibaba-3d-scene-dataset). Download all the data and link them to the local directory as follows:
     ```
@@ -48,11 +47,13 @@ Please check the orginal [REAME](README_BlenderProc2.md) if you want to know all
    
 3. Download textures data from [link](https://ambientcg.com/) by
    ```commandline
-   blenderproc/scripts/download_cc_textures.py
+   blenderproc run blenderproc/scripts/download_cc_textures.py ./resources/cctextures
    ```
 
 ---
 ### Render
+Since I use Ubuntu system, BlenderProc will automatically install [blender-3.0.0-linux-x64](https://download.blender.org/release/Blender3.0/) in `/home/USERNAME/blender/blender-3.0.0-linux-x64`. If you meet any problem, here I provide my [Blender version](https://drive.google.com/file/d/1VUCrSFP_lzMPYAJ9Z-2nfhYRP2t4YTez/view?usp=sharing). Please download to the same folder.  
+
 1. **Single scene rendering**
 
    Here we take the scene ID `6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9.json` as an example. We can do multi-view renderings by running the script as follows:  
