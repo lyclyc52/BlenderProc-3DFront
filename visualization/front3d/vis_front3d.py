@@ -7,7 +7,7 @@ import json
 from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
 from visualization.front3d.vis_classes import VIS_3DFRONT, VIS_3DFRONT_2D
-from visualization.front3d.tools.utils import parse_inst_from_3dfront
+from visualization.front3d.tools.utils import parse_inst_from_3dfront, project_insts_to_2d
 from visualization.utils.tools import label_mapping_2D
 
 def parse_args():
@@ -44,6 +44,7 @@ if __name__ == '__main__':
     cam_Ts = []
     class_maps = []
     instance_attrs = []
+    projected_inst_boxes = []
     for render_path in scene_render_dir.iterdir():
         with h5py.File(render_path) as f:
             colors = np.array(f["colors"])[:,::-1]
@@ -105,18 +106,23 @@ if __name__ == '__main__':
         class_maps.append(class_segmap)
         instance_attrs.append(inst_info)
 
+        '''Project objects 3D boxes to image planes'''
+        projected_box2d_list = project_insts_to_2d(inst_info, cam_K, cam_T)
+        projected_inst_boxes.append(projected_box2d_list)
+
     # get room layout information
     layout_boxes = []
     for rm in d.rooms:
         layout_boxes.append(rm.layout_box)
 
     viser_2D = VIS_3DFRONT_2D(color_maps=room_imgs, depth_maps=room_depths, inst_info=instance_attrs, cls_maps=class_maps,
-                              class_names=dataset_config.label_names)
+                              class_names=dataset_config.label_names, projected_inst_boxes=projected_inst_boxes)
 
     viser_2D.draw_colors()
     viser_2D.draw_depths()
     viser_2D.draw_cls_maps()
     viser_2D.draw_inst_maps(type=('mask'))
+    viser_2D.draw_box2d_from_3d()
 
     viser = VIS_3DFRONT(rooms=d.rooms, cam_K=cam_K, cam_Ts=cam_Ts, color_maps=room_imgs, depth_maps=room_depths,
                         inst_info=instance_attrs, layout_boxes=layout_boxes,
