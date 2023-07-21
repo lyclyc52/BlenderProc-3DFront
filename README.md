@@ -17,7 +17,7 @@ If you feel struggled in rendering 3D-Front or visualizing its 3D assets for you
 | <img src="images/BlenderProc_3DFront/scene2/pointcloud.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/layout_cam.png" width="800"> | <img src="images/BlenderProc_3DFront/scene2/models.png" width="800"> |
 
 *Note*:
-* X server is required for 3D visualization.
+* X server is required for 3D visualization only (i.e., You can render on a remote headless server, then visualize the 3D contents interactively with your local machine).
 * [OpenGL camera setting](http://www.songho.ca/opengl/gl_camera.html) is used.
 
 
