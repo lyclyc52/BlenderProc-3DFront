@@ -59,6 +59,8 @@ def cli():
         current_folder =  os.path.join(cc_texture_dir, asset)
         if not os.path.exists(current_folder):
             os.makedirs(current_folder)
+        else:
+            continue
         current_file_path = os.path.join(current_folder, "{}.zip".format(asset))
         response = requests.get(link, headers=headers)
         SetupUtility.extract_from_response(current_folder, response)
