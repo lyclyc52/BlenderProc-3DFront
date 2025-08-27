@@ -26,7 +26,7 @@ def parse_args():
                         help="Path to CCTextures folder, see the /scripts for the download script.")
     parser.add_argument("output_folder", nargs='?', default="examples/datasets/front_3d_with_improved_mat/renderings",
                         help="Path to where the data should be saved")
-    parser.add_argument("--n_views_per_scene", type=int, default=100,
+    parser.add_argument("--n_views_per_scene", type=int, default=5,
                         help="The number of views to render in each scene.")
     parser.add_argument("--append_to_existing_output", type=bool, default=True,
                         help="If append new renderings to the existing ones.")
@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
     parser.add_argument("--save_scene_as_blend", type=bool, default=True, help="If save the scene as a blender file.")
-    parser.add_argument("--no_render", type=bool, default=True, help="If not render the scene.")
+    parser.add_argument("--no_render", type=bool, default=False, help="If not render the scene.")
     return parser.parse_args()
 
 

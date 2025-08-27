@@ -9,8 +9,8 @@ import imageio
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True)
-    parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument("--input_dir", "-i", type=str, required=True)
+    parser.add_argument("--output_dir", "-o", type=str, default="examples/datasets/front_3d_with_improved_mat/renderings/rgb")
     args = parser.parse_args()
     # read the hdf5 file
     all_hdf5_files = glob.glob(os.path.join(args.input_dir, "*.hdf5"))
