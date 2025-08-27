@@ -10,8 +10,8 @@ import signal
 from contextlib import contextmanager
 import blenderproc.python.renderer.RendererUtility as RendererUtility
 from time import time
-import pdb
 import bpy
+import pdb
 
 # import pydevd_pycharm
 # pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
@@ -34,6 +34,7 @@ def parse_args():
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
     parser.add_argument("--save_scene_as_blend", type=bool, default=True, help="If save the scene as a blender file.")
+    parser.add_argument("--no_render", type=bool, default=True, help="If not render the scene.")
     return parser.parse_args()
 
 
@@ -94,6 +95,7 @@ if __name__ == '__main__':
     '''Pass already generated scenes.'''
     scene_output_folder = output_folder.joinpath(scene_name)
     existing_n_renderings = 0
+    os.makedirs(scene_output_folder, exist_ok=True)
 
     if scene_output_folder.is_dir():
         existing_n_renderings = len(list(scene_output_folder.iterdir()))
@@ -169,7 +171,11 @@ if __name__ == '__main__':
                 wall.set_material(i, random.choice(marble_materials))
         
         # save the current blender scene as blender file
-        bpy.ops.wm.save_as_mainfile(filepath=str(scene_output_folder.joinpath("scene.blend")))
+        if args.save_scene_as_blend:
+            bpy.ops.wm.save_as_mainfile(filepath=str(scene_output_folder.joinpath("scene.blend")))
+        if args.no_render:
+            print('No render. Exiting...')
+            sys.exit(0)
 
         # -------------------------------------------------------------------------
         #          Sample camera extrinsics

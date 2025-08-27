@@ -23,7 +23,6 @@ if __name__ == "__main__":
                     colors = f[key][:]
                     colors = colors.astype(np.uint8)
                     colors = colors.reshape(colors.shape[0], colors.shape[1], 3)
-                    colors = colors.transpose(1, 0, 2)
                     colors = colors.reshape(colors.shape[0], colors.shape[1], 3)
                     # save the colors by imageio
                     imageio.imwrite(os.path.join(args.output_dir, os.path.basename(hdf5_file).replace(".hdf5", ".png")), colors)

@@ -15,9 +15,8 @@ from blenderproc.python.utility.Utility import resolve_path
 from blenderproc.python.loader.ObjectLoader import load_obj
 from blenderproc.python.loader.TextureLoader import load_texture
 
-
 def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: str, label_mapping: LabelIdMapping,
-                 model_id_to_label: dict, ceiling_light_strength: float = 0.8, lamp_light_strength: float = 7.0) -> List[MeshObject]:
+                 model_id_to_label: dict, ceiling_light_strength: float = 0.8, lamp_light_strength: float = 7.0, room_id: int = 0) -> List[MeshObject]:
     """ Loads the 3D-Front scene specified by the given json file.
 
     :param json_path: Path to the json file, where the house information is stored.
@@ -45,6 +44,29 @@ def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: 
 
     if "scene" not in data:
         raise Exception("There is no scene data in this json file: {}".format(json_path))
+    # only generate the objects in the first room
+    # data['furniture'].keys() data['mesh'], data['scene']['ref']
+    if room_id is not None:
+        if len(data["scene"]["room"]) <= room_id:
+            raise Exception("The room id is out of range: {}".format(room_id))
+        data["scene"]["room"] = data["scene"]["room"][room_id:room_id+1]
+        all_uid_ids = []
+        all_jid_ids = []
+        for room in data['scene']['room']:
+            for child in room['children']:
+                all_uid_ids.append(child['ref'])
+                all_jid_ids.append(child['instanceid'])
+        # delete the objects that are not in the first room
+        new_furniture = []
+        new_mesh = []
+        for obj in data['mesh']:
+            if obj['uid'] in all_uid_ids:
+                new_mesh.append(obj)
+        for obj in data['furniture']:
+            if obj['uid'] in all_uid_ids: 
+                new_furniture.append(obj)
+        data['furniture'] = new_furniture
+        data['mesh'] = new_mesh
 
     created_objects = Front3DLoader._create_mesh_objects_from_file(data, front_3D_texture_path,
                                                                    ceiling_light_strength, label_mapping, json_path)
@@ -158,6 +180,7 @@ class Front3DLoader:
             if "material" not in mesh_data:
                 warnings.warn(f"Material is not defined for {used_obj_name} in this file: {json_path}")
                 continue
+            
             # create a new mesh
             obj = create_with_empty_mesh(used_obj_name, used_obj_name + "_mesh")
             created_objects.append(obj)
