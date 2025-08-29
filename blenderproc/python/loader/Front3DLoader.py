@@ -17,7 +17,8 @@ from blenderproc.python.loader.TextureLoader import load_texture
 import pdb
 
 def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: str, label_mapping: LabelIdMapping,
-                 model_id_to_label: dict, ceiling_light_strength: float = 0.8, lamp_light_strength: float = 7.0, room_id = None) -> List[MeshObject]:
+                 model_id_to_label: dict, ceiling_light_strength: float = 0.8, lamp_light_strength: float = 7.0, 
+                 room_id = None, return_data_info: bool = False) -> List[MeshObject]:
     """ Loads the 3D-Front scene specified by the given json file.
 
     :param json_path: Path to the json file, where the house information is stored.
@@ -46,38 +47,50 @@ def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: 
     if "scene" not in data:
         raise Exception("There is no scene data in this json file: {}".format(json_path))
     # only generate the objects in the first room
-    # if room_id is not None:
-    #     if len(data["scene"]["room"]) <= room_id:
-    #         raise Exception("The room id is out of range: {}".format(room_id))
-    #     all_uid_ids = []
-    #     all_jid_ids = []
-    #     for child in data['scene']['room'][room_id]['children']:
-    #         all_uid_ids.append(child['ref'])
-    #         all_jid_ids.append(child['instanceid'])
-    #     room_item_uid = []
-    #     for room in data['scene']['room']:
-    #         for child in room['children']:
-    #             room_item_uid.append(child['ref'])
-    #     # delete the objects that are not in the first room
-    #     new_furniture = []
-    #     new_mesh = []
-    #     for obj in data['mesh']:
-    #         if obj['uid'] in all_uid_ids:
-    #             new_mesh.append(obj)
-    #         if obj['uid'] not in room_item_uid:
-    #             new_mesh.append(obj)
-    #     for obj in data['furniture']:
-    #         if obj['uid'] in all_uid_ids: 
-    #             new_furniture.append(obj)
-    #         if obj['uid'] not in room_item_uid:
-    #             new_furniture.append(obj)
+    if room_id is not None:
+        if len(data["scene"]["room"]) <= room_id:
+            raise Exception("The room id is out of range: {}".format(room_id))
+        all_uid_ids = []
+        for child in data['scene']['room'][room_id]['children']:
+            all_uid_ids.append(child['ref'])
+        room_item_uid = []
+        for room in data['scene']['room']:
+            for child in room['children']:
+                room_item_uid.append(child['ref'])
+        # delete the objects that are not in the first room
+        label_dict = {}
+        new_furniture = []
+        new_mesh = []
+        for obj in data['mesh']:
+            if obj['uid'] in all_uid_ids:
+                if obj['uid'] not in label_dict:
+                    label_dict[obj['uid']] = obj['type']
+                else:
+                    if label_dict[obj['uid']] != obj['type']:
+                        raise Exception("The type of the object is not consistent: {}".format(obj['uid']))
+                new_mesh.append(obj)
+            if obj['uid'] not in room_item_uid:
+                new_mesh.append(obj)
+        for obj in data['furniture']:
+            if obj['uid'] in all_uid_ids:
+                if obj['uid'] not in label_dict:
+                    if 'category' in obj:
+                        label_dict[obj['uid']] = obj['category']
+                    else:
+                        if obj['jid'] in model_id_to_label:
+                            label_dict[obj['uid']] = model_id_to_label[obj['jid']]
+                        else:
+                            label_dict[obj['uid']] = 'Other'
+                new_furniture.append(obj)
+            if obj['uid'] not in room_item_uid:
+                new_furniture.append(obj)
 
-    #     data['furniture'] = new_furniture
-    #     data['mesh'] = new_mesh
+        data['furniture'] = new_furniture
+        data['mesh'] = new_mesh
                 
-    #     data["scene"]["room"] = data["scene"]["room"][room_id:room_id+1]
-    #     data['mesh'] = [obj for obj in data['mesh'] if obj['uid'] in room_item_uid]
-    #     data['furniture'] = [obj for obj in data['furniture'] if obj['uid'] in room_item_uid]
+        data["scene"]["room"] = data["scene"]["room"][room_id:room_id+1]
+        data['mesh'] = [obj for obj in data['mesh'] if obj['uid'] in room_item_uid]
+        data['furniture'] = [obj for obj in data['furniture'] if obj['uid'] in room_item_uid]
 
 
     created_objects = Front3DLoader._create_mesh_objects_from_file(data, front_3D_texture_path,
@@ -87,12 +100,25 @@ def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: 
                                                               label_mapping, model_id_to_label)
 
     created_objects += Front3DLoader._move_and_duplicate_furniture(data, all_loaded_furniture)
+    
+    # # get the center of the room by the floor objects
+    # floor_objects = [obj for obj in created_objects if obj.get_name().lower().startswith("floor")]
+    # center_of_room = np.mean(np.array([obj.get_location() for obj in floor_objects]), axis=0)
+    # # move all the objects to the origin
+    # for obj in created_objects:
+    #     obj.set_location(obj.get_location() - center_of_room)
+    
+    # Update the category_id of the objects in data
+    if room_id is not None:
+        for obj in data['scene']['room'][0]['children']:
+            obj['category_id'] = label_dict[obj['ref']] if obj['ref'] in label_dict else 'Other'
 
-    # add an identifier to the obj
-    for obj in created_objects:
-        obj.set_cp("is_3d_front", True)
 
-    return created_objects
+
+    if return_data_info:
+        return created_objects, data.copy()
+    else:
+        return created_objects
 
 class Front3DLoader:
     """ Loads the 3D-Front dataset.
