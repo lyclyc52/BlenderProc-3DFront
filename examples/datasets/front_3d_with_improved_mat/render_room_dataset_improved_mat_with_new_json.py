@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--fov", type=int, default=90, help="Field of view of camera.")
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
+    parser.add_argument("--new_json_path", type=str, default=None, help="Path to the new json file.")
     parser.add_argument("--room_id", type=int, default=None, help="Room id.")
     parser.add_argument("--save_scene_as_blend", action='store_true', help="If save the scene as a blender file.")
     parser.add_argument("--save_scene_with_texture", action='store_true', help="If save the scene with textures.")
@@ -95,7 +96,7 @@ if __name__ == '__main__':
             sys.exit(0)
 
 
-    room_id = args.room_id
+    room_id = None
 
     '''Pass already generated scenes.'''
     scene_output_folder = output_folder.joinpath(f"{scene_name}_room_{room_id:02d}") if room_id is not None else output_folder.joinpath(scene_name)
@@ -140,19 +141,15 @@ if __name__ == '__main__':
         model_id_to_label = {m["model_id"]: m["category"].lower().replace(" / ", "/") if m["category"] else 'others' for
                                 m in
                                 model_info_data}
-        pdb.set_trace()
 
         # load the front 3D objects
-        loaded_objects, data_info = bproc.loader.load_front3d_with_collection(
-            json_path=str(front_json),
+        loaded_objects = bproc.loader.load_front3d_with_collection(
+            # json_path=str(front_json),
+            json_path=args.new_json_path,
             future_model_path=str(future_folder),
             front_3D_texture_path=str(front_3D_texture_folder),
             label_mapping=mapping,
-            model_id_to_label=model_id_to_label,
-            room_id=room_id,
-            return_data_info=True)
-        with open(scene_output_folder.joinpath('data_info.json'), 'w') as f:
-            json.dump(data_info, f, indent=4)
+            model_id_to_label=model_id_to_label)
 
         # -------------------------------------------------------------------------
         #          Sample materials

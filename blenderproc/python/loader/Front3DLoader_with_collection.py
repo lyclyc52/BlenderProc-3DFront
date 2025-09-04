@@ -1,3 +1,4 @@
+import collections
 import json
 import os
 import warnings
@@ -16,7 +17,7 @@ from blenderproc.python.loader.ObjectLoader import load_obj
 from blenderproc.python.loader.TextureLoader import load_texture
 import pdb
 
-def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: str, label_mapping: LabelIdMapping,
+def load_front3d_with_collection(json_path: str, future_model_path: str, front_3D_texture_path: str, label_mapping: LabelIdMapping,
                  model_id_to_label: dict, ceiling_light_strength: float = 0.8, lamp_light_strength: float = 7.0, 
                  room_id = None, return_data_info: bool = False) -> List[MeshObject]:
     """ Loads the 3D-Front scene specified by the given json file.
@@ -98,7 +99,6 @@ def load_front3d(json_path: str, future_model_path: str, front_3D_texture_path: 
 
     all_loaded_furniture = Front3DLoader._load_furniture_objs(data, future_model_path, lamp_light_strength,
                                                               label_mapping, model_id_to_label)
-
     created_objects += Front3DLoader._move_and_duplicate_furniture(data, all_loaded_furniture)
     # Update the category_id of the objects in data
     if room_id is not None:
@@ -453,7 +453,6 @@ class Front3DLoader:
                         # if the object is a lamp, do the same as for the ceiling and add an emission shader
                         if is_lamp:
                             mat.make_emissive(lamp_light_strength)
-
                 all_objs.extend(objs)
             elif "7e101ef3-7722-4af8-90d5-7c562834fabd" in obj_file:
                 warnings.warn(f"This file {obj_file} was skipped as it can not be read by blender.")
@@ -477,7 +476,9 @@ class Front3DLoader:
         mesh_id = -1
         for room_id, room in enumerate(data["scene"]["room"]):
             # for each object in that room
+            all_collections = collections.defaultdict(list)
             for child in room["children"]:
+                # create a dict of list
                 if "furniture" in child["instanceid"]:
                     # find the object where the uid matches the child ref id
                     mesh_id += 1
@@ -489,18 +490,89 @@ class Front3DLoader:
                             else:
                                 # if it is the first time use the object directly
                                 new_obj = obj
-                            created_objects.append(new_obj)
-                            new_obj.set_cp("inst_mark", 'furniture_' + str(mesh_id))
-                            new_obj.set_cp("is_used", True)
-                            new_obj.set_cp("room_id", room['instanceid'])
-                            new_obj.set_cp("type", "Object")  # is an object used for the interesting score
-                            new_obj.set_cp("coarse_grained_class", new_obj.get_cp("category_id"))
-                            # this flips the y and z coordinate to bring it to the blender coordinate system
-                            new_obj.set_location(mathutils.Vector(child["pos"]).xzy)
-                            new_obj.set_scale(child["scale"])
-                            new_obj.blender_obj.scale.x = -1 * new_obj.blender_obj.scale.x
-                            # extract the quaternion and convert it to a rotation matrix
-                            rotation_mat = mathutils.Quaternion(child["rot"]).to_euler().to_matrix().to_4x4()
-                            # transform it into the blender coordinate system and then to an euler
-                            new_obj.set_rotation_euler((blender_rot_mat @ rotation_mat).to_euler())
+                            # gather the mesh of each object
+                            all_collections[obj.get_cp("uid")].append(new_obj)
+                            # created_objects.append(new_obj)
+                            # new_obj.set_cp("inst_mark", 'furniture_' + str(mesh_id))
+                            # new_obj.set_cp("is_used", True)
+                            # new_obj.set_cp("room_id", room['instanceid'])
+                            # new_obj.set_cp("type", "Object")  # is an object used for the interesting score
+                            # new_obj.set_cp("coarse_grained_class", new_obj.get_cp("category_id"))
+                            # # this flips the y and z coordinate to bring it to the blender coordinate system
+                            # new_obj.set_location(mathutils.Vector(child["pos"]).xzy)
+                            # new_obj.set_scale(child["scale"])
+                            # new_obj.blender_obj.scale.x = -1 * new_obj.blender_obj.scale.x
+                            # # extract the quaternion and convert it to a rotation matrix
+                            # rotation_mat = mathutils.Quaternion(child["rot"]).to_euler().to_matrix().to_4x4()
+                            # # transform it into the blender coordinate system and then to an euler
+                            # new_obj.set_rotation_euler((blender_rot_mat @ rotation_mat).to_euler())
+            for child in room["children"]:
+                if "furniture" in child["instanceid"]:
+                    if child["ref"] in all_collections and len(all_collections[child["ref"]]) > 0:
+                        bpy.ops.object.select_all(action='DESELECT')
+                        new_obj = all_collections[child["ref"]][0]
+                        new_obj_name = new_obj.get_name() if len(all_collections[child["ref"]]) == 1 else new_obj.get_name()[:-4]
+                        if len(all_collections[child["ref"]]) > 1:
+                            for obj in all_collections[child["ref"]]:
+                                obj.blender_obj.select_set(True)
+                            bpy.context.view_layer.objects.active = new_obj.blender_obj
+                            bpy.ops.object.join()
+                            bpy.context.view_layer.objects.active.name = new_obj_name
+                        created_objects.append(new_obj)
+                        new_obj.set_cp("inst_mark", 'furniture_' + str(mesh_id))
+                        new_obj.set_cp("room_id", room['instanceid'])
+                        new_obj.set_cp("type", "Object")  # is an object used for the interesting score
+                        new_obj.set_cp("coarse_grained_class", new_obj.get_cp("category_id"))
+                        # this flips the y and z coordinate to bring it to the blender coordinate system
+                        new_obj.set_location(mathutils.Vector(child["pos"]).xzy)
+                        new_obj.set_scale(child["scale"])
+                        new_obj.blender_obj.scale.x = -1 * new_obj.blender_obj.scale.x
+                        # extract the quaternion and convert it to a rotation matrix
+                        rotation_mat = mathutils.Quaternion(child["rot"]).to_euler().to_matrix().to_4x4()
+                        # transform it into the blender coordinate system and then to an euler
+                        new_obj.set_rotation_euler((blender_rot_mat @ rotation_mat).to_euler())
+
         return created_objects
+
+
+
+
+# def collection():
+#     import bpy
+
+#     # Deselect all objects first to ensure a clean selection
+#     bpy.ops.object.select_all(action='DESELECT')
+
+#     # Define the objects you want to group
+#     object_names = ["Cube", "Sphere", "Cylinder"] 
+
+#     # Select the objects you want to add to the collection
+#     for obj_name in object_names:
+#         if obj_name in bpy.data.objects:
+#             bpy.data.objects[obj_name].select_set(True)
+
+#     # Create a new collection and move the selected objects into it
+#     collection_name = "My_New_Collection"
+#     bpy.ops.object.move_to_collection(collection_name=collection_name)
+
+#     # Optional: Deselect the objects after grouping
+#     bpy.ops.object.select_all(action='DESELECT')
+
+#     print(f"Objects grouped into collection: '{collection_name}'")
+
+# def move_collection(collection_name: str):
+#     import bpy
+
+#     # Get the collection by its name
+#     collection_name = "MyCollection"  # Replace with your collection's name
+#     my_collection = bpy.data.collections.get(collection_name)
+
+#     if my_collection:
+#         # Define the new location
+#         new_location = (5.0, 2.0, 1.0)  # X, Y, Z coordinates
+
+#         # Iterate through each object in the collection and set its location
+#         for obj in my_collection.objects:
+#             obj.location = new_location
+#     else:
+#         print(f"Collection '{collection_name}' not found.")

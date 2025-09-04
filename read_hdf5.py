@@ -9,7 +9,7 @@ import imageio
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", "-i", type=str, default="examples/datasets/front_3d_with_improved_mat/renderings/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_room_03")
+    parser.add_argument("--input_dir", "-i", type=str, default="/mnt/afs/liuyichen/repo/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_room_01")
     parser.add_argument("--output_dir", "-o", type=str, default="examples/datasets/front_3d_with_improved_mat/renderings/rgb")
     args = parser.parse_args()
     # read the hdf5 file
