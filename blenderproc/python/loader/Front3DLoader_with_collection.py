@@ -509,10 +509,11 @@ class Front3DLoader:
             for child in room["children"]:
                 if "furniture" in child["instanceid"]:
                     if child["ref"] in all_collections and len(all_collections[child["ref"]]) > 0:
-                        bpy.ops.object.select_all(action='DESELECT')
+                        
                         new_obj = all_collections[child["ref"]][0]
                         new_obj_name = new_obj.get_name() if len(all_collections[child["ref"]]) == 1 else new_obj.get_name()[:-4]
                         if len(all_collections[child["ref"]]) > 1:
+                            bpy.ops.object.select_all(action='DESELECT')
                             for obj in all_collections[child["ref"]]:
                                 obj.blender_obj.select_set(True)
                             bpy.context.view_layer.objects.active = new_obj.blender_obj

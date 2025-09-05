@@ -140,10 +140,10 @@ if __name__ == '__main__':
         model_id_to_label = {m["model_id"]: m["category"].lower().replace(" / ", "/") if m["category"] else 'others' for
                                 m in
                                 model_info_data}
-        pdb.set_trace()
 
         # load the front 3D objects
         loaded_objects, data_info = bproc.loader.load_front3d_with_collection(
+        # loaded_objects, data_info = bproc.loader.load_front3d(
             json_path=str(front_json),
             future_model_path=str(future_folder),
             front_3D_texture_path=str(front_3D_texture_folder),

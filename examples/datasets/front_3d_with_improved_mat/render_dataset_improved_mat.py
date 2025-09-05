@@ -33,8 +33,8 @@ def parse_args():
     parser.add_argument("--fov", type=int, default=90, help="Field of view of camera.")
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
-    parser.add_argument("--save_scene_as_blend", type=bool, default=True, help="If save the scene as a blender file.")
-    parser.add_argument("--no_render", type=bool, default=False, help="If not render the scene.")
+    parser.add_argument("--save_scene_as_blend", action='store_true', help="If save the scene as a blender file.")
+    parser.add_argument("--no_render", action='store_true', help="If not render the scene.")
     return parser.parse_args()
 
 
@@ -137,12 +137,15 @@ if __name__ == '__main__':
                                 model_info_data}
 
         # load the front 3D objects
-        loaded_objects = bproc.loader.load_front3d(
+        loaded_objects, data_info = bproc.loader.load_front3d(
             json_path=str(front_json),
             future_model_path=str(future_folder),
             front_3D_texture_path=str(front_3D_texture_folder),
             label_mapping=mapping,
-            model_id_to_label=model_id_to_label)
+            model_id_to_label=model_id_to_label,
+            return_data_info=True)
+        with open(scene_output_folder.joinpath('data_info.json'), 'w') as f:
+            json.dump(data_info, f)
 
         # -------------------------------------------------------------------------
         #          Sample materials
