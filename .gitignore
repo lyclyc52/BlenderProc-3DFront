@@ -33,3 +33,4 @@ examples/datasets/front_3d_with_improved_mat/3D-FUTURE*
 examples/datasets/front_3d_with_improved_mat/preprocess/*
 examples/datasets/front_3d_with_improved_mat/renderings
 examples/datasets/front_3d_with_improved_mat/failed_scene_names.txt
+bash_scripts/

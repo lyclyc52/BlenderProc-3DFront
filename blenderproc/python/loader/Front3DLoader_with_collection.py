@@ -530,48 +530,4 @@ class Front3DLoader:
                         rotation_mat = mathutils.Quaternion(child["rot"]).to_euler().to_matrix().to_4x4()
                         # transform it into the blender coordinate system and then to an euler
                         new_obj.set_rotation_euler((blender_rot_mat @ rotation_mat).to_euler())
-
         return created_objects
-
-
-
-
-# def collection():
-#     import bpy
-
-#     # Deselect all objects first to ensure a clean selection
-#     bpy.ops.object.select_all(action='DESELECT')
-
-#     # Define the objects you want to group
-#     object_names = ["Cube", "Sphere", "Cylinder"] 
-
-#     # Select the objects you want to add to the collection
-#     for obj_name in object_names:
-#         if obj_name in bpy.data.objects:
-#             bpy.data.objects[obj_name].select_set(True)
-
-#     # Create a new collection and move the selected objects into it
-#     collection_name = "My_New_Collection"
-#     bpy.ops.object.move_to_collection(collection_name=collection_name)
-
-#     # Optional: Deselect the objects after grouping
-#     bpy.ops.object.select_all(action='DESELECT')
-
-#     print(f"Objects grouped into collection: '{collection_name}'")
-
-# def move_collection(collection_name: str):
-#     import bpy
-
-#     # Get the collection by its name
-#     collection_name = "MyCollection"  # Replace with your collection's name
-#     my_collection = bpy.data.collections.get(collection_name)
-
-#     if my_collection:
-#         # Define the new location
-#         new_location = (5.0, 2.0, 1.0)  # X, Y, Z coordinates
-
-#         # Iterate through each object in the collection and set its location
-#         for obj in my_collection.objects:
-#             obj.location = new_location
-#     else:
-#         print(f"Collection '{collection_name}' not found.")

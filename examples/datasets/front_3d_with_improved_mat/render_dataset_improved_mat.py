@@ -145,7 +145,7 @@ if __name__ == '__main__':
             model_id_to_label=model_id_to_label,
             return_data_info=True)
         with open(scene_output_folder.joinpath('data_info.json'), 'w') as f:
-            json.dump(data_info, f)
+            json.dump(data_info, f, indent=4)
 
         # -------------------------------------------------------------------------
         #          Sample materials
@@ -175,6 +175,7 @@ if __name__ == '__main__':
         
         # save the current blender scene as blender file
         if args.save_scene_as_blend:
+            bpy.ops.file.pack_all()
             bpy.ops.wm.save_as_mainfile(filepath=str(scene_output_folder.joinpath("scene.blend")))
         if args.no_render:
             print('No render. Exiting...')

@@ -182,9 +182,16 @@ if __name__ == '__main__':
         
         # save the current blender scene as blender file
         if args.save_scene_as_blend:
+            # Alternative method - don't pack textures
+            bpy.ops.wm.save_as_mainfile(
+                filepath=str(scene_output_folder.joinpath(f"scene.blend")),
+                copy=True,
+                relative_remap=False,
+                compress=True,
+            )
             if args.save_scene_with_texture:
                 bpy.ops.file.pack_all()
-            bpy.ops.wm.save_as_mainfile(filepath=str(scene_output_folder.joinpath(f"scene.blend")))
+                bpy.ops.wm.save_as_mainfile(filepath=str(scene_output_folder.joinpath(f"scene_with_texture.blend")))
         if args.no_render:
             print('No render. Exiting...')
             sys.exit(0)
@@ -229,11 +236,12 @@ if __name__ == '__main__':
         if len(cam_nums) < 1:
             print('No camera poses sampled. Exiting...')
             sys.exit(0)
-
+        print(f"Start sampling camera poses for {scene_output_folder.name}...")
         for floor_id, cam_num_per_scene in enumerate(cam_nums):
             cam2world_matrices = []
             coverage_scores = []
             tries = 0
+            count = 0
             while tries < n_tries[floor_id]:
                 # sample cam loc inside house
                 height = np.random.uniform(1.4, 1.8)
@@ -248,7 +256,13 @@ if __name__ == '__main__':
                 coverage_score = bproc.camera.scene_coverage_score(cam2world_matrix, special_objects,
                                                                     special_objects_weight=special_object_scores)
                 # for sanity check
+                print(f"Coverage score: {coverage_score}, obstacle check: {obstacle_check}")
                 if obstacle_check and coverage_score >= 0.5:
+                    cam2world_matrices.append(cam2world_matrix)
+                    coverage_scores.append(coverage_score)
+                    tries += 1
+                count += 1
+                if count > 100:
                     cam2world_matrices.append(cam2world_matrix)
                     coverage_scores.append(coverage_score)
                     tries += 1
@@ -257,7 +271,7 @@ if __name__ == '__main__':
                 if cam_id in cam_ids:
                     bproc.camera.add_camera_pose(cam2world_matrix)
                     cam_Ts.append(cam2world_matrix)
-
+        print(f"Start rendering {scene_output_folder.name}...")
         # render the whole pipeline
         # bproc.renderer.enable_normals_output()
         bproc.renderer.enable_depth_output(activate_antialiasing=False)
