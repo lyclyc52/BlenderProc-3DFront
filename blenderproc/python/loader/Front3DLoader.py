@@ -489,6 +489,7 @@ class Front3DLoader:
                             else:
                                 # if it is the first time use the object directly
                                 new_obj = obj
+
                             created_objects.append(new_obj)
                             new_obj.set_cp("inst_mark", 'furniture_' + str(mesh_id))
                             new_obj.set_cp("is_used", True)

@@ -1,5 +1,12 @@
+cached
+display*
+FRONT3D_render*
+temp_*
+
 __pycache__
 */__pycache__
+blenderproc.egg-info/
+build/
 blender
 .idea/
 .vscode/

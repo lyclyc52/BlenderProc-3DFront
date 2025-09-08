@@ -132,6 +132,7 @@ class MeshObject(Entity):
         """
         if not local_coords:
             local2world = Matrix(self.get_local2world_mat())
+            
             return np.array([local2world @ Vector(cord) for cord in self.blender_obj.bound_box])
         else:
             return np.array([Vector(cord) for cord in self.blender_obj.bound_box])
@@ -169,10 +170,10 @@ class MeshObject(Entity):
         if mode == "POINT":
             if point is None:
                 raise Exception("The parameter point is not given even though the mode is set to POINT.")
-            prev_cursor_location = bpy.context.scene.cursor.location
+            prev_cursor_location = bpy.context.scene.cursor.location.copy()
             bpy.context.scene.cursor.location = point
             bpy.ops.object.origin_set(context, type='ORIGIN_CURSOR')
-            bpy.context.scene.cursor.location = prev_cursor_location
+            bpy.context.scene.cursor.location = prev_cursor_location.copy()
         elif mode == "CENTER_OF_MASS":
             bpy.ops.object.origin_set(context, type='ORIGIN_CENTER_OF_MASS')
         elif mode == "CENTER_OF_VOLUME":
@@ -337,6 +338,23 @@ class MeshObject(Entity):
         # Make sure the mesh is updated
         self.get_mesh().update()
 
+    def join_with_other_objects(self, objects: List["MeshObject"]):
+        """
+            Joins the given list of objects with this object.
+
+            Does not change the global selection.
+            The given object-references become invalid after the join operation.
+
+        :param objects: List of objects which will be merged with this object
+        """
+        context = {}
+        #save selection
+        context["object"] = context["active_object"] = self.blender_obj
+        # select all objects which will be merged with the target
+        context["selected_objects"] = context["selected_editable_objects"] = [obj.blender_obj for obj in objects] + [self.blender_obj]
+        # execute the joining operation
+        bpy.ops.object.join(context)
+
     def edit_mode(self):
         """ Switch into edit mode of this mesh object """
         # Make sure we are in object mode
@@ -436,6 +454,21 @@ class MeshObject(Entity):
             return max_val > 1e-7
         return False
 
+    def scale_uv_coordinates(self, factor: float):
+        """Scales the UV coordinates of an object by a given factor. Scaling with a factor greater than one has the 
+        effect of making the texture look smaller on the object.
+
+        :param factor: The amount the UV coordinates will be scaled.
+        :type factor: float
+        """
+        if not self.has_uv_mapping():
+            raise Exception("Cannot scale UV coordinates of a MeshObject that has no UV mapping.")
+
+        mesh = self.blender_obj.data
+        uv_layer = mesh.uv_layers.active
+        for loop in mesh.loops :
+            uv_layer.data[loop.index].uv *= factor
+        
     def add_displace_modifier(self, texture: bpy.types.Texture, mid_level: float = 0.5, strength: float = 0.1,
                               min_vertices_for_subdiv: int = 10000, subdiv_level: int = 2):
         """ Adds a displace modifier with a texture to an object.
@@ -498,8 +531,8 @@ def create_with_empty_mesh(object_name: str, mesh_name: str = None) -> "MeshObje
 def create_primitive(shape: str, **kwargs) -> "MeshObject":
     """ Creates a new primitive mesh object.
 
-    :param shape: The name of the primitive to create. Available: ["CUBE"]
-    :return:
+    :param shape: The name of the primitive to create. Available: ["CUBE", "CYLINDER", "CONE", "PLANE", "SPHERE", "MONKEY"]
+    :return: The newly created MeshObject
     """
     if shape == "CUBE":
         bpy.ops.mesh.primitive_cube_add(**kwargs)
@@ -517,14 +550,15 @@ def create_primitive(shape: str, **kwargs) -> "MeshObject":
         raise Exception("No such shape: " + shape)
 
     primitive = MeshObject(bpy.context.object)
-    # Blender bug: Scale is ignored by default. #1060
-    if 'scale' in kwargs:
+    # Blender bug: Scale is ignored by default for planes and monkeys.
+    # See https://developer.blender.org/T88047
+    if 'scale' in kwargs and shape in ["MONKEY", "PLANE"]:
         primitive.set_scale(kwargs['scale'])
 
     return primitive
 
 
-def convert_to_meshes(blender_objects: list) -> List["MeshObject"]:
+def convert_to_meshes(blender_objects: list) -> List[MeshObject]:
     """ Converts the given list of blender objects to mesh objects
 
     :param blender_objects: List of blender objects.
@@ -533,7 +567,7 @@ def convert_to_meshes(blender_objects: list) -> List["MeshObject"]:
     return [MeshObject(obj) for obj in blender_objects]
 
 
-def get_all_mesh_objects() -> List["MeshObject"]:
+def get_all_mesh_objects() -> List[MeshObject]:
     """
     Returns all mesh objects in scene
 
@@ -549,7 +583,7 @@ def disable_all_rigid_bodies():
             obj.disable_rigidbody()
 
 
-def create_bvh_tree_multi_objects(mesh_objects: List["MeshObject"]) -> mathutils.bvhtree.BVHTree:
+def create_bvh_tree_multi_objects(mesh_objects: List[MeshObject]) -> mathutils.bvhtree.BVHTree:
     """ Creates a bvh tree which contains multiple mesh objects.
 
     Such a tree is later used for fast raycasting.
@@ -575,7 +609,7 @@ def create_bvh_tree_multi_objects(mesh_objects: List["MeshObject"]) -> mathutils
     return bvh_tree
 
 
-def compute_poi(objects: List["MeshObject"]) -> np.ndarray:
+def compute_poi(objects: List[MeshObject]) -> np.ndarray:
     """ Computes a point of interest in the scene. Point is defined as a location of the one of the selected objects
     that is the closest one to the mean location of the bboxes of the selected objects.
 
@@ -600,7 +634,7 @@ def compute_poi(objects: List["MeshObject"]) -> np.ndarray:
 
 def scene_ray_cast(origin: Union[Vector, list, np.ndarray], direction: Union[Vector, list, np.ndarray],
                    max_distance: float = 1.70141e+38) -> Tuple[
-    bool, np.ndarray, np.ndarray, int, "MeshObject", np.ndarray]:
+    bool, np.ndarray, np.ndarray, int, MeshObject, np.ndarray]:
     """ Cast a ray onto all geometry from the scene, in world space.
 
    :param origin: Origin of the ray, in world space.
