@@ -144,6 +144,7 @@ if __name__ == '__main__':
 
         # load the front 3D objects
         loaded_objects = bproc.loader.load_front3d_with_collection(
+        # loaded_objects = bproc.loader.load_front3d(
             # json_path=str(front_json),
             json_path=args.new_json_path,
             future_model_path=str(future_folder),

@@ -93,9 +93,17 @@ def load_front3d_with_collection(json_path: str, future_model_path: str, front_3
         data['mesh'] = [obj for obj in data['mesh'] if obj['uid'] in room_item_uid]
         data['furniture'] = [obj for obj in data['furniture'] if obj['uid'] in room_item_uid]
 
-
     created_objects = Front3DLoader._create_mesh_objects_from_file(data, front_3D_texture_path,
                                                                    ceiling_light_strength, label_mapping, json_path)
+    # Delete the duplicate furniture
+    new_furniture_list = []
+    ele_list = set()
+    for ele in data["furniture"]:
+        if ele["jid"] in ele_list:
+            continue
+        ele_list.add(ele["jid"])
+        new_furniture_list.append(ele)
+    data["furniture"] = new_furniture_list
 
     all_loaded_furniture = Front3DLoader._load_furniture_objs(data, future_model_path, lamp_light_strength,
                                                               label_mapping, model_id_to_label)
@@ -487,38 +495,28 @@ class Front3DLoader:
                             # if the object was used before, duplicate the object and move that duplicated obj
                             if obj.get_cp("is_used"):
                                 new_obj = obj.duplicate()
+                                print(f"Duplicate obj: {new_obj.get_name()}")
                             else:
                                 # if it is the first time use the object directly
                                 new_obj = obj
+                            new_obj.set_cp("is_used", True)
                             # gather the mesh of each object
-                            all_collections[obj.get_cp("uid")].append(new_obj)
-                            # created_objects.append(new_obj)
-                            # new_obj.set_cp("inst_mark", 'furniture_' + str(mesh_id))
-                            # new_obj.set_cp("is_used", True)
-                            # new_obj.set_cp("room_id", room['instanceid'])
-                            # new_obj.set_cp("type", "Object")  # is an object used for the interesting score
-                            # new_obj.set_cp("coarse_grained_class", new_obj.get_cp("category_id"))
-                            # # this flips the y and z coordinate to bring it to the blender coordinate system
-                            # new_obj.set_location(mathutils.Vector(child["pos"]).xzy)
-                            # new_obj.set_scale(child["scale"])
-                            # new_obj.blender_obj.scale.x = -1 * new_obj.blender_obj.scale.x
-                            # # extract the quaternion and convert it to a rotation matrix
-                            # rotation_mat = mathutils.Quaternion(child["rot"]).to_euler().to_matrix().to_4x4()
-                            # # transform it into the blender coordinate system and then to an euler
-                            # new_obj.set_rotation_euler((blender_rot_mat @ rotation_mat).to_euler())
+                            all_collections[child["instanceid"]].append(new_obj)
+                            
             for child in room["children"]:
                 if "furniture" in child["instanceid"]:
-                    if child["ref"] in all_collections and len(all_collections[child["ref"]]) > 0:
-                        
-                        new_obj = all_collections[child["ref"]][0]
-                        new_obj_name = new_obj.get_name() if len(all_collections[child["ref"]]) == 1 else new_obj.get_name()[:-4]
-                        if len(all_collections[child["ref"]]) > 1:
+                    instanceid = child["instanceid"]
+                    if instanceid in all_collections and len(all_collections[instanceid]) > 0:
+                        new_obj = all_collections[instanceid][0]
+                        new_obj_name = new_obj.get_name() if len(all_collections[instanceid]) == 1 else new_obj.get_name()[:-4]
+                        if len(all_collections[instanceid]) > 1:
                             bpy.ops.object.select_all(action='DESELECT')
-                            for obj in all_collections[child["ref"]]:
+                            for obj in all_collections[instanceid]:
                                 obj.blender_obj.select_set(True)
                             bpy.context.view_layer.objects.active = new_obj.blender_obj
                             bpy.ops.object.join()
                             bpy.context.view_layer.objects.active.name = new_obj_name
+                            # Update the MeshObject reference to point to the joined object
                         created_objects.append(new_obj)
                         new_obj.set_cp("inst_mark", 'furniture_' + str(mesh_id))
                         new_obj.set_cp("room_id", room['instanceid'])
