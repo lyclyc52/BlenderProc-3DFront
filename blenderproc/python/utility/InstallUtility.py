@@ -81,7 +81,7 @@ class InstallUtility:
 
             # Determine configured version
             # right new only support blender-3.1.0
-            major_version = "3.1"
+            major_version = "3.0"
             minor_version = "0"
             blender_version = "blender-{}.{}".format(major_version, minor_version)
             if platform == "linux" or platform == "linux2":
