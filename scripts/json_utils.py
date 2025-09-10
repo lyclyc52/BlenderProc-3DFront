@@ -1,6 +1,5 @@
 import json
 
-from cmd_utils import ModifyRoomJson
 
 MODEL_INFO_PATH = "examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model"
 
@@ -14,9 +13,7 @@ def save_room_json(json_path, extra_data = None):
     with open(json_path.replace('data_info.json', 'room_info.json'), 'w') as f:
         json.dump(data, f, indent=4)
 
-def extract_room_info(json_path):
-    with open(json_path, 'r') as f:
-        data = json.load(f)
+def extract_room_info(data):
     floors, ceilings = [], []
     for obj in data['mesh']:
         if 'floor' in obj['type'].lower():
@@ -40,6 +37,6 @@ def extract_room_info(json_path):
     x, y, z = (x_max - x_min), (y_max - y_min), (z_max - z_min)
     print(f"room size: {x}, {y}, {z}")
     print(f"range: x: [{x_min}, {x_max}], y: [{y_min}, {y_max}], z: [{z_min}, {z_max}]")
-    return x, y, z
+    return (x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max)
 
 

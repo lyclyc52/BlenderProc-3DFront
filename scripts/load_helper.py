@@ -135,8 +135,7 @@ def load_scene_objects(scene_idx, overwrite=False):
     return loaded_objects
 
 # TODO: read config file
-def load_scene_objects_with_improved_mat(scene_idx, overwrite=False):
-    check_cache_dir(scene_idx)
+def load_scene_objects_with_improved_mat(json_path, room_idx, overwrite=False):
 
     mapping_file = bproc.utility.resolve_resource(os.path.join("front_3D", "blender_label_mapping.csv"))
     mapping = bproc.utility.LabelIdMapping.from_csv(mapping_file)
@@ -147,12 +146,12 @@ def load_scene_objects_with_improved_mat(scene_idx, overwrite=False):
                          for m in model_info_data}
     
     loaded_objects, data_info = bproc.loader.load_front3d_with_collection(
-        json_path=SCENE_LIST[scene_idx],
+        json_path=json_path,
         future_model_path=MODEL_DIR,
         front_3D_texture_path=TEXTURE_DIR,
         label_mapping=mapping,
         model_id_to_label=model_id_to_label,
-        # room_id=room_id,
+        room_id=room_idx,
         return_data_info=True)
 
     # -------------------------------------------------------------------------
@@ -183,4 +182,4 @@ def load_scene_objects_with_improved_mat(scene_idx, overwrite=False):
     
 
 
-    return loaded_objects
+    return loaded_objects, data_info

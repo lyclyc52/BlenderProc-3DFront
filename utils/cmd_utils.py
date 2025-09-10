@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional, Dict, Any
 import os
 
 
-from utils.obj_utils import parse_obj_file, calculate_bounding_box
+from obj_utils import parse_obj_file, calculate_bounding_box
 
 MODEL_INFO_PATH = "examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model"
 

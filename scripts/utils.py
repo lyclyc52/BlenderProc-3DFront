@@ -31,7 +31,7 @@ def plot_3d_point_cloud(data):
     ax.scatter(x, y, z)
     plt.savefig('./test.png')
 
-def build_and_save_scene_cache(cache_dir, scene_objects):
+def build_and_save_scene_cache(cache_dir = None, scene_objects = None):
     """
         scene_objects_dict.npz (Objects in this file are not filtered yet!)
         {
@@ -70,7 +70,8 @@ def build_and_save_scene_cache(cache_dir, scene_objects):
 
     scene_objects_dict['bbox'] = np.array([np.min(mins, axis=0), np.max(maxs, axis=0)])
     scene_objects_dict['objects'] = objects
-    np.savez(os.path.join(cache_dir, 'scene_objects_dict.npz'), **scene_objects_dict)
+    if cache_dir is not None:
+        np.savez(os.path.join(cache_dir, 'scene_objects_dict.npz'), **scene_objects_dict)
 
     return scene_objects_dict
 

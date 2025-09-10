@@ -661,10 +661,11 @@ def main():
             len(glob.glob(join(dst_dir, 'overview/raw/*'))) > 0:
         # if cached information is available & there's no need to render -> use cached scene object information
         scene_objs_dict = np.load(cache_dir + '/scene_objects_dict.npz', allow_pickle=True)
+        pdb.set_trace()
     else: 
         # load objects
         bproc.init(compute_device='cuda:0', compute_device_type=COMPUTE_DEVICE_TYPE)
-        scene_objects = load_scene_objects(args.scene_idx)
+        scene_objects = load_scene_objects_with_improved_mat(args.scene_idx)
         scene_objs_dict = build_and_save_scene_cache(cache_dir, scene_objects)
 
     room_bbox = get_room_bbox(args.scene_idx, args.room_idx, scene_objs_dict=scene_objs_dict)

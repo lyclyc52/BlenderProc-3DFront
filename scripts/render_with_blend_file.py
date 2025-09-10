@@ -31,7 +31,8 @@ import sys
 from floor_plan import *
 from load_helper import *
 from render_configs import *
-from utils import *
+from json_utils import extract_room_info, save_room_json
+from utils import build_and_save_scene_cache
 from bbox_proj import get_aabb_coords, project_aabb_to_image, project_obb_to_image
 import json
 from typing import List
@@ -41,7 +42,8 @@ import argparse
 from mathutils import Vector, Matrix
 
 import pandas as pd
-from seg import build_segmentation_map, build_metadata
+import pdb
+# from seg import build_segmentation_map, build_metadata
 
 
 pi = np.pi
@@ -57,6 +59,19 @@ def construct_scene_list():
         SCENE_LIST.append(scene_path)
     print(f"SCENE_LIST is constructed. {len(SCENE_LIST)} scenes in total")
 
+def check_pos_valid(pos, room_objs_dict, room_bbox):
+    """ Check if the position is in the room, not too close to walls and not conflicting with other objects. """
+    room_bbox_small = [[item+0.3 for item in room_bbox[0]], [room_bbox[1][0]-0.3, room_bbox[1][1]-0.3, room_bbox[1][2]-0.3]] # ceiling is lower
+    if not pos_in_bbox(pos, room_bbox_small):
+        print("Position is not in the room")
+        return False
+    for obj_dict in room_objs_dict['objects']:
+        obj_bbox = obj_dict['aabb']
+        if pos_in_bbox(pos, obj_bbox):
+            print("Position is conflicting with other objects")
+            return False
+
+    return True
 
 ############################## poses generation ##################################
 
@@ -105,16 +120,26 @@ def c2w_from_loc_and_at(cam_pos, at, up=(0, 0, 1)):
     c2w[:3, 3], c2w[:3, :3] = cam_pos, cam_rot
     return c2w
 
-def generate_four_corner_poses(scene_idx, room_idx):
+def generate_four_corner_poses(room_bbox_min, room_bbox_max, room_objs_dict, room_bbox):
     """ Return a list of matrices of 4 corner views in the room. """
-    bbox_xy = ROOM_CONFIG[scene_idx][room_idx]['bbox']
-    corners = [[i+0.3 for i in bbox_xy[0]], [i-0.3 for i in bbox_xy[1]]]
+    bbox_xy = [[room_bbox_min[0], room_bbox_min[2]], [room_bbox_max[0], room_bbox_max[2]]]
+    corners = [[i+0.5 for i in bbox_xy[0]], [i-0.5 for i in bbox_xy[1]]]
     x1, y1, x2, y2 = corners[0][0], corners[0][1], corners[1][0], corners[1][1]
     at = [(x1+x2)/2, (y1+y2)/2, 1.2]
     locs = [[x1, y1, 2], [x1, y2, 2], [x2, y1, 2], [x2, y2, 2]]
-
-    c2ws = [c2w_from_loc_and_at(pos, at) for pos in locs]
-    
+    c2ws = []
+    for pos in locs:
+        cam2world_matrix = c2w_from_loc_and_at(pos, at)
+        count = 0
+        while not check_pos_valid(pos, room_objs_dict, room_bbox):
+            pdb.set_trace()
+            pos = [pos[0] + 0.1, pos[1] + 0.1, pos[2]]
+            cam2world_matrix = c2w_from_loc_and_at(pos, at)
+            count += 1
+            if count >= 10:
+                break
+        if count < 10:
+            c2ws.append(cam2world_matrix)
     return c2ws
 
 def pos_in_bbox(pos, bbox):
@@ -130,103 +155,108 @@ def pos_in_bbox(pos, bbox):
             pos[1] >= bbox[0][1] and pos[1] <= bbox[1][1] and \
             pos[2] >= bbox[0][2] and pos[2] <= bbox[1][2]
 
-def check_pos_valid(pos, room_objs_dict, room_bbox):
-    """ Check if the position is in the room, not too close to walls and not conflicting with other objects. """
-    room_bbox_small = [[item+0.5 for item in room_bbox[0]], [room_bbox[1][0]-0.5, room_bbox[1][1]-0.5, room_bbox[1][2]-0.8]] # ceiling is lower
-    if not pos_in_bbox(pos, room_bbox_small):
-        return False
-    for obj_dict in room_objs_dict['objects']:
-        obj_bbox = obj_dict['aabb']
-        if pos_in_bbox(pos, obj_bbox):
-            return False
+# For metadata and 2D/3D mask generation
+def filter_room_objects(scene_idx, room_idx, room_objs):
+    for obj in room_objs:
+        obj.set_cp('instance_name', obj.get_name())
+        obj.set_cp('instance_id', 0)
 
-    return True
+    if 'merge_list' in ROOM_CONFIG[scene_idx][room_idx]:
+        merge_dict = ROOM_CONFIG[scene_idx][room_idx]['merge_list']
+        for merged_label, merge_items in merge_dict.items():
+            # select objs to be merged
+            objs_to_be_merged = [obj for obj in room_objs if obj.get_name() in merge_items]
+            for obj in objs_to_be_merged:
+                obj.set_cp('instance_name', merged_label)
 
-def generate_room_poses(scene_idx, room_idx, room_objs_dict, room_bbox, num_poses_per_object, max_global_pos, global_density):
-    """ Return a list of poses including global poses and close-up poses for each object."""
-
-    poses = []
-    num_closeup, num_global = 0, 0
-    h_global = 1.2
-
-    # close-up poses for each object.
-    if num_poses_per_object>0:
-        for obj_dict in room_objs_dict['objects']:
-            obj_bbox = np.array(obj_dict['aabb'])
-            cent = np.mean(obj_bbox, axis=0)
-            rad = np.linalg.norm(obj_bbox[1]-obj_bbox[0])/2 * 1.7 # how close the camera is to the object
-            if np.max(obj_bbox[1]-obj_bbox[0])<1:
-                rad *= 1.2 # handle small objects
-
-            positions = []
-            n_hori_sects = 30
-            n_vert_sects = 10
-            theta_bound = [0, 2*pi]
-            phi_bound = [-pi/4, pi/4]
-            theta_sect = (theta_bound[1] - theta_bound[0]) / n_hori_sects
-            phi_sect = (phi_bound[1] - phi_bound[0]) / n_vert_sects
-            for i_vert_sect in range(n_vert_sects):
-                for i_hori_sect in range(n_hori_sects):
-                    theta_a = theta_bound[0] + i_hori_sect * theta_sect
-                    theta_b = theta_a + theta_sect
-                    phi_a = phi_bound[0] + i_vert_sect * phi_sect
-                    phi_b = phi_a + phi_sect
-                    theta = np.random.uniform(theta_a, theta_b)
-                    phi = np.random.uniform(phi_a, phi_b)
-                    pos = [cos(phi)*cos(theta), cos(phi)*sin(theta), sin(phi)]
-                    positions.append(pos)
-            positions = np.array(positions)
-            positions = positions * rad + cent
-
-            positions = [pos for pos in positions if check_pos_valid(pos, room_objs_dict, room_bbox)]
-            shuffle(positions)
-            if len(positions) > num_poses_per_object:
-                positions = positions[:num_poses_per_object]
-
-            poses.extend([c2w_from_loc_and_at(pos, cent) for pos in positions])
-
-            num_closeup = len(positions)
-
-    # global poses
-    if max_global_pos>0:
-        bbox = ROOM_CONFIG[scene_idx][room_idx]['bbox']
-        x1, y1, x2, y2 = bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1]
-        rm_cent = np.array([(x1+x2)/2, (y1+y2)/2, h_global])
-
-        # flower model
-        rad_bound = [0.3, 5]
-        rad_intv = global_density
-        theta_bound = [0, 2*pi]
-        theta_sects = 20
-        theta_intv = (theta_bound[1] - theta_bound[0]) / theta_sects
-        h_bound = [0.8, 2.0]
-
-        positions = []
-        theta = theta_bound[0]
-        for i in range(theta_sects):
-            rad = rad_bound[0]
-            while rad < rad_bound[1]:
-                h = np.random.uniform(h_bound[0], h_bound[1])
-                pos = [rm_cent[0] + rad * cos(theta), rm_cent[1] + rad * sin(theta), h]
-                if check_pos_valid(pos, room_bbox_meta, room_bbox):
-                    positions.append(pos)
-                rad += rad_intv
-            theta += theta_intv
-        positions = np.array(positions)
-        np.random.shuffle(positions)
-
-        if len(positions) > max_global_pos:
-            positions = positions[:max_global_pos]
-
-        poses.extend([c2w_from_loc_and_at(pos, [rm_cent[0], rm_cent[1], pos[2]]) for pos in positions])
-
-        num_global = len(positions)
+    result_objects = []
+    for obj in room_objs:
+        obj_name = obj.get_cp('instance_name')
+        flag_use = True
+        # check global OBJ_BAN_LIST
+        for ban_word in OBJ_BAN_LIST:
+            if ban_word in obj_name:
+                flag_use=False
+        # check keyword_ban_list
+        if 'keyword_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
+            for ban_word in ROOM_CONFIG[scene_idx][room_idx]['keyword_ban_list']:
+                if ban_word in obj_name:
+                    flag_use=False
+        # check fullname_ban_list
+        if 'fullname_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
+            for fullname in ROOM_CONFIG[scene_idx][room_idx]['fullname_ban_list']:
+                if fullname == obj_name.strip():
+                    flag_use=False
         
+        if flag_use:
+            result_objects.append(obj)
 
-    return poses, num_closeup, num_global
+    id_map = {}
+    for obj in result_objects:
+        obj_name = obj.get_cp('instance_name')
+        if obj_name not in id_map:
+            id_map[obj_name] = len(id_map) + 1
+        obj.set_cp('instance_id', id_map[obj_name])
+    
+    return result_objects, id_map
 
 
-#################################################################################
+def render_poses(poses, temp_dir=RENDER_TEMP_DIR) -> List:
+    """ Render a scene with a list of poses. 
+        No room idx is needed because the poses can be anywhere in the room. """
+
+    # add camera poses to render queue
+    for cam2world_matrix in poses:
+        bproc.camera.add_camera_pose(cam2world_matrix)
+    
+    # render
+    bproc.renderer.set_light_bounces(diffuse_bounces=200, glossy_bounces=200, max_bounces=200, transmission_bounces=200, transparent_max_bounces=200)
+    bproc.camera.set_intrinsics_from_K_matrix(K, IMG_WIDTH, IMG_HEIGHT)
+    data = bproc.renderer.render(output_dir=temp_dir)
+    imgs = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in data['colors']]
+
+    return imgs
+
+###########################################################################################
+def parse_args():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-j', '--json_path', type=str, default=None)
+    parser.add_argument('-s', '--scene_idx', type=int, default=None)
+    parser.add_argument('-r', '--room_idx', type=int, default=None)
+    parser.add_argument('-n', '--save_name', type=str, default=None)
+    parser.add_argument('--mode', type=str, choices=['plan', 'overview', 'render', 'bbox', 'seg', 'depth'], 
+                        help="plan: Generate the floor plan of the scene. \
+                              overview:Generate 4 corner overviews with bbox projected. \
+                              render: Render images in the scene. \
+                              bbox: Overwrite bboxes by regenerating transforms.json."
+                              "\nseg: Create 3D semantic/instance segmentation map.")
+    parser.add_argument('-ppo', '--pos_per_obj', type=int, default=15, help='Number of close-up poses for each object.')
+    parser.add_argument('-gp', '--max_global_pos', type=int, default=150, help='Max number of global poses.')
+    parser.add_argument('-gd', '--global_density', type=float, default=0.15, help='The radius interval of global poses. Smaller global_density -> more global views')
+    parser.add_argument('-nc', '--no_check', action='store_true', default=False, help='Do not check the poses. Render directly.')
+    parser.add_argument('--gpu', type=str, default="1")
+    parser.add_argument('--relabel', action='store_true', help='Relabel the objects in the scene by rewriting transforms.json.')
+    parser.add_argument('--rotation', action='store_true', help = 'output rotation bounding boxes if it is true.')
+    parser.add_argument('--bbox_type', type=str, default="aabb", choices=['aabb', 'obb'], help='Output aabb or obb')
+    parser.add_argument('--render_root', type=str, default='./FRONT3D_render', help='Output directory. If not specified, use the default directory.')
+
+    parser.add_argument('--seg_res', type=int, default=256, help='The max grid resolution for 3D segmentation map.')
+    parser.add_argument('--pose_dir', type=str, default='', 
+                        help='The directory containing the poses (transforms.json) for 2D mask rendering.')
+    
+    args = parser.parse_args()
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
+
+
+    return parser.parse_args()
+
+def check_args(args):
+    if args.json_path is not None or (args.scene_idx is not None or args.room_idx is not None):
+        return
+    else:
+        raise ValueError("Either json_path or scene_idx and room_idx must be provided")
 
 def get_scene_bbox(loaded_objects=None, scene_objs_dict=None):
     """ Return the bounding box of the scene. """
@@ -244,9 +274,9 @@ def get_scene_bbox(loaded_objects=None, scene_objs_dict=None):
         return scene_objs_dict['bbox']
     else:
         raise ValueError('Either loaded_objects or scene_objs_dict should be provided.')
-    
 
-def get_room_bbox(scene_idx, room_idx, scene_objects=None, scene_objs_dict=None):
+
+def get_room_bbox(json, scene_objects=None, scene_objs_dict=None):
     """ Return the bounding box of the room. """
     # get global height
     scene_min, scene_max = get_scene_bbox(scene_objects, scene_objs_dict)
@@ -262,36 +292,21 @@ def bbox_contained(bbox_a, bbox_b):
     return bbox_a[0][0]>=bbox_b[0][0] and bbox_a[0][1]>=bbox_b[0][1] and bbox_a[0][2]>=bbox_b[0][2] and \
            bbox_a[1][0]<=bbox_b[1][0] and bbox_a[1][1]<=bbox_b[1][1] and bbox_a[1][2]<=bbox_b[1][2]
 
-def get_room_objects(scene_objects, room_bbox, cleanup=False):
-    """ Return the objects within the room bbox. Cleanup unecessary objects. """
-    objects = []
+def get_room_objs_dict(room_bbox, scene_objs_dict):
+    """ Get the room object dictionary containing all the objects in the room. """
+    room_objects = []
+    scene_objects = scene_objs_dict['objects']
+    for obj_dict in scene_objects:
+        if bbox_contained(obj_dict['aabb'], room_bbox):
+            room_objects.append(obj_dict)
 
-    for object in scene_objects:
-        obj_bbox = object.get_bound_box()
-        aabb = np.array([np.min(obj_bbox, axis=0), np.max(obj_bbox, axis=0)])
-        if bbox_contained(aabb, room_bbox):
-            objects.append(object)
+    room_objs_dict = {}
+    room_objs_dict['bbox'] = np.array(room_bbox)
+    room_objs_dict['objects'] = room_objects
+    
+    return room_objs_dict
 
-    return objects
-
-def merge_bbox(scene_idx, room_idx, room_bbox_meta):
-    """ Merge the bounding box of the room. """
-    if 'merge_list' in ROOM_CONFIG[scene_idx][room_idx]:
-        merge_dict = ROOM_CONFIG[scene_idx][room_idx]['merge_list']
-        for label, merge_items in merge_dict.items():
-            result_room_bbox_meta, merge_mins, merge_maxs = [], [], []
-            for obj in room_bbox_meta:
-                if obj[0] in merge_items:
-                    merge_mins.append(obj[1][0])
-                    merge_maxs.append(obj[1][1])
-                else:
-                    result_room_bbox_meta.append(obj)
-            if len(merge_mins) > 0:
-                result_room_bbox_meta.append((label, [np.min(np.array(merge_mins), axis=0), np.max(np.array(merge_maxs), axis=0)]))
-            room_bbox_meta = result_room_bbox_meta
-    return room_bbox_meta
-
-def merge_bbox_in_dict(scene_idx, room_idx, room_objs_dict):
+def merge_bbox_in_dict(json_path, room_objs_dict):
     """ Merge the bounding box of the room. Operate on the object dictionary with obb """
     if 'merge_list' in ROOM_CONFIG[scene_idx][room_idx]:
         merge_dict = ROOM_CONFIG[scene_idx][room_idx]['merge_list']
@@ -356,44 +371,10 @@ def merge_bbox_in_dict(scene_idx, room_idx, room_objs_dict):
 
     return room_objs_dict
 
-def filter_bbox(scene_idx, room_idx, room_bbox_meta):
-    """ Clean up according to merge_list, global OBJ_BAN_LIST, keyword_ban_list, and fullname_ban_list. """
-
-    # check merge_list
-    room_bbox_meta = merge_bbox(scene_idx, room_idx, room_bbox_meta)
-    result_room_bbox_meta = []
-    for bbox_meta in room_bbox_meta:
-        flag_use = True
-        obj_name = bbox_meta[0]
-
-        # check global OBJ_BAN_LIST
-        for ban_word in OBJ_BAN_LIST:
-            if ban_word in obj_name:
-                flag_use=False
-        
-        # check keyword_ban_list
-        if 'keyword_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
-            for ban_word in ROOM_CONFIG[scene_idx][room_idx]['keyword_ban_list']:
-                if ban_word in obj_name:
-                    flag_use=False
-        
-        # check fullname_ban_list
-        if 'fullname_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
-            for fullname in ROOM_CONFIG[scene_idx][room_idx]['fullname_ban_list']:
-                if fullname == obj_name.strip():
-                    flag_use=False
-        
-        if flag_use:
-            result_room_bbox_meta.append(bbox_meta)
-    
-    return result_room_bbox_meta
-
-def filter_objs_in_dict(scene_idx, room_idx, room_objs_dict):
+def filter_objs_in_dict(json_path, room_objs_dict):
     """ Clean up objects according to merge_list, global OBJ_BAN_LIST, keyword_ban_list, and fullname_ban_list. """
 
     # check merge_list
-    # TODO: merge_list support obb
-    room_objs_dict = merge_bbox_in_dict(scene_idx, room_idx, room_objs_dict)
 
     ori_objects = room_objs_dict['objects']
     result_objects = []
@@ -404,16 +385,6 @@ def filter_objs_in_dict(scene_idx, room_idx, room_objs_dict):
         for ban_word in OBJ_BAN_LIST:
             if ban_word in obj_name:
                 flag_use=False
-        # check keyword_ban_list
-        if 'keyword_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
-            for ban_word in ROOM_CONFIG[scene_idx][room_idx]['keyword_ban_list']:
-                if ban_word in obj_name:
-                    flag_use=False
-        # check fullname_ban_list
-        if 'fullname_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
-            for fullname in ROOM_CONFIG[scene_idx][room_idx]['fullname_ban_list']:
-                if fullname == obj_name.strip():
-                    flag_use=False
         
         if flag_use:
             result_objects.append(obj_dict)
@@ -423,389 +394,62 @@ def filter_objs_in_dict(scene_idx, room_idx, room_objs_dict):
     return room_objs_dict
 
 
-# For metadata and 2D/3D mask generation
-def filter_room_objects(scene_idx, room_idx, room_objs):
-    for obj in room_objs:
-        obj.set_cp('instance_name', obj.get_name())
-        obj.set_cp('instance_id', 0)
-
-    if 'merge_list' in ROOM_CONFIG[scene_idx][room_idx]:
-        merge_dict = ROOM_CONFIG[scene_idx][room_idx]['merge_list']
-        for merged_label, merge_items in merge_dict.items():
-            # select objs to be merged
-            objs_to_be_merged = [obj for obj in room_objs if obj.get_name() in merge_items]
-            for obj in objs_to_be_merged:
-                obj.set_cp('instance_name', merged_label)
-
-    result_objects = []
-    for obj in room_objs:
-        obj_name = obj.get_cp('instance_name')
-        flag_use = True
-        # check global OBJ_BAN_LIST
-        for ban_word in OBJ_BAN_LIST:
-            if ban_word in obj_name:
-                flag_use=False
-        # check keyword_ban_list
-        if 'keyword_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
-            for ban_word in ROOM_CONFIG[scene_idx][room_idx]['keyword_ban_list']:
-                if ban_word in obj_name:
-                    flag_use=False
-        # check fullname_ban_list
-        if 'fullname_ban_list' in ROOM_CONFIG[scene_idx][room_idx].keys():
-            for fullname in ROOM_CONFIG[scene_idx][room_idx]['fullname_ban_list']:
-                if fullname == obj_name.strip():
-                    flag_use=False
-        
-        if flag_use:
-            result_objects.append(obj)
-
-    id_map = {}
-    for obj in result_objects:
-        obj_name = obj.get_cp('instance_name')
-        if obj_name not in id_map:
-            id_map[obj_name] = len(id_map) + 1
-        obj.set_cp('instance_id', id_map[obj_name])
-    
-    return result_objects, id_map
-
-
-def render_poses(poses, temp_dir=RENDER_TEMP_DIR) -> List:
-    """ Render a scene with a list of poses. 
-        No room idx is needed because the poses can be anywhere in the room. """
-
-    # add camera poses to render queue
-    for cam2world_matrix in poses:
-        bproc.camera.add_camera_pose(cam2world_matrix)
-    
-    # render
-    bproc.renderer.set_light_bounces(diffuse_bounces=200, glossy_bounces=200, max_bounces=200, transmission_bounces=200, transparent_max_bounces=200)
-    bproc.camera.set_intrinsics_from_K_matrix(K, IMG_WIDTH, IMG_HEIGHT)
-    data = bproc.renderer.render(output_dir=temp_dir)
-    imgs = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in data['colors']]
-
-    return imgs
-
-##################################### save to dataset #####################################
-def get_ngp_type_boxes(room_objs_dict, bbox_type):
-    """ Return a list of bbox in instant-ngp format. """
-    bounding_boxes = []
-    for i, obj_dict in enumerate(room_objs_dict['objects']):
-        if bbox_type == 'aabb':
-            obj_aabb = obj_dict['aabb']
-            obj_bbox_ngp = {
-                "extents": (obj_aabb[1]-obj_aabb[0]).tolist(),
-                "orientation": np.eye(3).tolist(),
-                "position": ((obj_aabb[0]+obj_aabb[1])/2.0).tolist(),
-            }
-            bounding_boxes.append(obj_bbox_ngp)
-        elif bbox_type == 'obb':
-            obj_coords = obj_dict['coords']
-            # TODO: 8 point to [x, y, z, w, l, h, theta]
-            np.set_printoptions(precision=2)
-            obb = poly2obb_3d(obj_coords)
-            extents, orientation, position = obb2ngp(obb)
-
-            if obj_dict['name'] == 'chair':
-                print('x y z w l h theta', obb)
-                print('extents', extents)
-                print('orientation', orientation)
-                print('position', position)
-            obj_bbox_ngp = {
-                "extents": extents,
-                "orientation": orientation,
-                "position": position,
-            }
-            bounding_boxes.append(obj_bbox_ngp)
-    return bounding_boxes
-
-def save_in_ngp_format(imgs, poses, intrinsic, room_objs_dict, bbox_type, dst_dir):
-    """ Save images and poses to ngp format dataset. """
-    print('Save in instant-ngp format...')
-    train_dir = join(dst_dir, 'train')
-    imgdir = join(dst_dir, 'train', 'images')
-
-    if os.path.isdir(imgdir) and len(os.listdir(imgdir))>0:
-        input("Warning: The existing images will be overwritten. Press enter to continue...")
-        shutil.rmtree(imgdir)
-    os.makedirs(imgdir, exist_ok=True)
-
-    fx = intrinsic[0, 0]
-    fy = intrinsic[1, 1]
-    cx = intrinsic[0, 2]
-    cy = intrinsic[1, 2]
-    angle_x = 2*np.arctan(cx/fx)
-    angle_y = 2*np.arctan(cy/fy)
-
-    room_bbox = np.array(room_objs_dict['bbox'])
-    scale = 1.5 / np.max(room_bbox[1] - room_bbox[0])
-    cent_after_scale = scale * (room_bbox[0] + room_bbox[1])/2.0
-    offset = np.array([0.5, 0.5, 0.5]) - cent_after_scale
-
-    out = {
-			"camera_angle_x": float(angle_x),
-			"camera_angle_y": float(angle_y),
-			"fl_x": float(fx),
-			"fl_y": float(fy),
-			"k1": 0,
-			"k2": 0,
-			"p1": 0,
-			"p2": 0,
-			"cx": float(cx),
-			"cy": float(cy),
-			"w": int(IMG_WIDTH),
-			"h": int(IMG_HEIGHT),
-			"aabb_scale": 2,
-            "scale": float(scale),
-            "offset": offset.tolist(),
-            "room_bbox": room_bbox.tolist(),
-            "num_room_objects": len(room_objs_dict['objects']),
-			"frames": [],
-            "bounding_boxes": []
-		}
-    
-    for i, pose in enumerate(poses):
-        frame = {
-            "file_path": join('images/{:04d}.jpg'.format(i)),
-            "transform_matrix": pose.tolist()
-        }
-        out['frames'].append(frame)
-    
-    out['bounding_boxes'] = get_ngp_type_boxes(room_objs_dict, bbox_type)
-
-    # out['is_merge_bbox'] = 'No'
-    
-    with open(join(train_dir, 'transforms.json'), 'w') as f:
-        json.dump(out, f, indent=4)
-    
-    if imgs == None: # support late rendering
-        imgs = render_poses(poses, imgdir)
-    
-    for i, img in enumerate(imgs):
-        cv2.imwrite(join(imgdir, '{:04d}.jpg'.format(i)), img)
-
-def get_room_objs_dict(room_bbox, scene_objs_dict):
-    """ Get the room object dictionary containing all the objects in the room. """
-    room_objects = []
-    scene_objects = scene_objs_dict['objects']
-    for obj_dict in scene_objects:
-        if bbox_contained(obj_dict['aabb'], room_bbox):
-            room_objects.append(obj_dict)
-
-    room_objs_dict = {}
-    room_objs_dict['bbox'] = np.array(room_bbox)
-    room_objs_dict['objects'] = room_objects
-    
-    return room_objs_dict
-
-###########################################################################################
-def parse_args():
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-s', '--scene_idx', type=int, required=True)
-    parser.add_argument('-r', '--room_idx', type=int, required=True)
-    parser.add_argument('--mode', type=str, choices=['plan', 'overview', 'render', 'bbox', 'seg', 'depth'], 
-                        help="plan: Generate the floor plan of the scene. \
-                              overview:Generate 4 corner overviews with bbox projected. \
-                              render: Render images in the scene. \
-                              bbox: Overwrite bboxes by regenerating transforms.json."
-                              "\nseg: Create 3D semantic/instance segmentation map.")
-    parser.add_argument('-ppo', '--pos_per_obj', type=int, default=15, help='Number of close-up poses for each object.')
-    parser.add_argument('-gp', '--max_global_pos', type=int, default=150, help='Max number of global poses.')
-    parser.add_argument('-gd', '--global_density', type=float, default=0.15, help='The radius interval of global poses. Smaller global_density -> more global views')
-    parser.add_argument('-nc', '--no_check', action='store_true', default=False, help='Do not check the poses. Render directly.')
-    parser.add_argument('--gpu', type=str, default="1")
-    parser.add_argument('--relabel', action='store_true', help='Relabel the objects in the scene by rewriting transforms.json.')
-    parser.add_argument('--rotation', action='store_true', help = 'output rotation bounding boxes if it is true.')
-    parser.add_argument('--bbox_type', type=str, default="aabb", choices=['aabb', 'obb'], help='Output aabb or obb')
-    parser.add_argument('--render_root', type=str, default='./FRONT3D_render', help='Output directory. If not specified, use the default directory.')
-
-    parser.add_argument('--seg_res', type=int, default=256, help='The max grid resolution for 3D segmentation map.')
-    parser.add_argument('--pose_dir', type=str, default='', 
-                        help='The directory containing the poses (transforms.json) for 2D mask rendering.')
-    
-    args = parser.parse_args()
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-
-
-
-    return parser.parse_args()
-
-
 def main():
     args = parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    
 
-    dst_dir = join(args.render_root, '3dfront_{:04d}_{:02}'.format(args.scene_idx, args.room_idx))
+    dst_dir = join(args.render_root, f"{args.save_name}_{args.room_idx:02d}")
     os.makedirs(dst_dir, exist_ok=True)
 
     construct_scene_list()
-
-    if args.mode == 'plan':
-        if args.scene_idx < 0 or args.scene_idx > 6812:
-            raise ValueError("%d is not a valid scene_idx. Should provide a scene_idx between 0 and 6812 inclusively")
-        os.makedirs(os.path.join(dst_dir, 'overview'), exist_ok=True)
-        if args.rotation:
-            floor_plan = FloorPlan_rot(args.scene_idx)
-            floor_plan.drawgroups_and_save(os.path.join(dst_dir, 'overview'))
-
-        else:
-            floor_plan = FloorPlan(args.scene_idx)
-            floor_plan.drawgroups_and_save(os.path.join(dst_dir, 'overview'))
-        
-        return
-        
+    check_args(args)
 
     cache_dir = f'./cached/{args.scene_idx}'
-    if args.mode in ['overview', 'bbox'] and os.path.isfile(cache_dir + '/scene_objects_dict.npz') > 0 and \
-            len(glob.glob(join(dst_dir, 'overview/raw/*'))) > 0:
-        # if cached information is available & there's no need to render -> use cached scene object information
-        scene_objs_dict = np.load(cache_dir + '/scene_objects_dict.npz', allow_pickle=True)
-    else: 
-        # load objects
-        bproc.init(compute_device='cuda:0', compute_device_type=COMPUTE_DEVICE_TYPE)
-        scene_objects = load_scene_objects(args.scene_idx)
-        scene_objs_dict = build_and_save_scene_cache(cache_dir, scene_objects)
 
-    room_bbox = get_room_bbox(args.scene_idx, args.room_idx, scene_objs_dict=scene_objs_dict)
+    # load objects
+    bproc.init(compute_device='cuda:0', compute_device_type=COMPUTE_DEVICE_TYPE)
+    json_path = SCENE_LIST[args.scene_idx] if args.scene_idx is not None else args.json_path
+    scene_objects, data_info = load_scene_objects_with_improved_mat(json_path, args.room_idx)
+    room_bbox, room_bbox_min, room_bbox_max = extract_room_info(data_info)
+    extra_data = {
+        "room_size": room_bbox,
+        "room_bbox_min": room_bbox_min,
+        "room_bbox_max": room_bbox_max
+    }
+    data_info['scene']['room'][0].update(extra_data)
+
+    scene_objs_dict = build_and_save_scene_cache(scene_objects = scene_objects)
+
+    room_bbox = [[room_bbox_min[0], room_bbox_min[2], room_bbox_min[1]], [room_bbox_max[0], room_bbox_max[2], room_bbox_max[1]]]
     room_objs_dict = get_room_objs_dict(room_bbox, scene_objs_dict)
-    room_objs_dict = filter_objs_in_dict(args.scene_idx, args.room_idx, room_objs_dict)
+    room_objs_dict = filter_objs_in_dict(json_path, room_objs_dict)
 
-    if args.mode == 'overview':
-        overview_dir = os.path.join(dst_dir, 'overview')
-        os.makedirs(overview_dir, exist_ok=True)
-        poses = generate_four_corner_poses(args.scene_idx, args.room_idx)
-
-        cache_dir = join(dst_dir, 'overview/raw')
-        cached_img_paths = glob.glob(cache_dir+'/*')
-        imgs = []
-        if len(cached_img_paths) > 0 and True:
-            # use cached overview images
-            for img_path in sorted(cached_img_paths):
-                imgs.append(cv2.imread(img_path))
-        else:
-            # render overview images
-            imgs = render_poses(poses, overview_dir)
-            os.makedirs(cache_dir, exist_ok=True)
-            for i, img in enumerate(imgs):
-                cv2.imwrite(join(cache_dir, f'raw_{i}.jpg'), img)
-
-        # project aabb and obb to images
-        labels, coords, aabb_codes, colors = [], [], [], []
-        for obj_dict in room_objs_dict['objects']:
-            labels.append(obj_dict['name'])
-            coords.append(np.concatenate((np.array(obj_dict['coords']), np.ones((len(np.array(obj_dict['coords'])), 1))), axis=1))
-            aabb_codes.append(obj_dict['aabb'])
-            colors.append(random_color())
-        aabb_codes = np.array(aabb_codes).reshape(-1, 6)
-        
-        for i, (img, pose) in enumerate(zip(imgs, poses)):
-            img_aabb = project_aabb_to_image(img, K, np.linalg.inv(pose), aabb_codes, labels, colors)
-            img_obb = project_obb_to_image(img, K, np.linalg.inv(pose), coords, labels, colors)
-            cv2.imwrite(os.path.join(os.path.join(dst_dir, 'overview'), 'proj_aabb_{}.png'.format(i)), img_aabb)
-            cv2.imwrite(os.path.join(os.path.join(dst_dir, 'overview'), 'proj_obb_{}.png'.format(i)), img_obb)
-            
-        for label in sorted(labels):
-            print(label)
-        print(f"{len(labels)} objects in total.\n")
     
-    elif args.mode == 'render':
-        poses, num_closeup, num_global = generate_room_poses(args.scene_idx, args.room_idx, room_objs_dict, room_bbox, 
-                                    num_poses_per_object = args.pos_per_obj,
-                                    max_global_pos = args.max_global_pos,
-                                    global_density=args.global_density
-                                    )
-        if not args.no_check:
-            print('Render for scene {}, room {}:'.format(args.scene_idx, args.room_idx))
-            for obj_dict in room_objs_dict['objects']:
-                print(f"\t{obj_dict['aabb']}")
-            print('Total poses: {}[global] + {}[closeup] x {}[object] = {} poses'.format(num_global, args.pos_per_obj, len(room_objs_dict['objects']), len(poses)))
-            print('Estimated time: {} minutes'.format(len(poses)*25//60))
-            input('Press Enter to continue...')
+    with open(join(dst_dir, 'data_info.json'), 'w') as f:
+        json.dump(data_info, f, indent=4)
 
-        save_in_ngp_format(None, poses, K, room_bbox, room_objs_dict, dst_dir) # late rendering
-        
-    elif args.mode == 'bbox':
-        json_path = os.path.join(dst_dir, 'train/transforms.json')
-        json_path_result = os.path.join(dst_dir, 'train/transforms.json')
+    overview_dir = os.path.join(dst_dir, 'overview')
+    os.makedirs(overview_dir, exist_ok=True)
+    poses = generate_four_corner_poses(room_bbox_min, room_bbox_max, room_objs_dict, room_bbox)
 
-        with open(json_path, 'r') as f:
-            meta = json.load(f)
-        
-        meta['bounding_boxes'] = get_ngp_type_boxes(room_objs_dict, args.bbox_type)
-        
-        with open(json_path_result, 'w') as f:
-            json.dump(meta, f, indent=4)
+    cache_dir = join(dst_dir, 'overview/raw')
+    cached_img_paths = glob.glob(cache_dir+'/*')
+    imgs = []
+    # save the poses to npy
+    np.save(join(dst_dir, 'overview/poses.npy'), poses)
 
-    elif args.mode == 'seg':
-        room_objs = get_room_objects(scene_objects, room_bbox)
-        room_objs, id_map = filter_room_objects(args.scene_idx, args.room_idx, room_objs)
-        print('Number of objects in the room: ', len(room_objs))
-
-        data_path = os.path.join('/data/bhuai/3dfront_rpn_data/features_256',
-                                 f'3dfront_{args.scene_idx:04d}_{args.room_idx:02d}.npz')
-        if not os.path.exists(data_path):
-            return
-        data = np.load(data_path)
-        res = data['resolution']
-        res = res[[2, 0, 1]]
-        res = res.astype(np.int32)
-
-        # ins_map, res = build_segmentation_map(room_objs, room_bbox, args.seg_res, res)
-        metadata = build_metadata(id_map, room_objs_dict, room_objs)
-        
-        mask_dir = os.path.join(args.render_root, 'masks')
-        os.makedirs(mask_dir, exist_ok=True)
-        metadata_dir = os.path.join(args.render_root, 'metadata')
-        os.makedirs(metadata_dir, exist_ok=True)
-
-        scene_name = f'3dfront_{args.scene_idx:04d}_{args.room_idx:02d}'
-        metadata['scene_name'] = scene_name
-
-        # np.save(os.path.join(mask_dir, scene_name + '.npy'), ins_map)
-        with open(os.path.join(metadata_dir, scene_name + '.json'), 'w') as f:
-            json.dump(metadata, f, indent=2)
-
-        # Render 2D segmentation masks
-        poses_file = os.path.join(args.pose_dir, scene_name, 'train', 'transforms.json')
-        with open(poses_file) as f:
-            data = json.load(f)
-            for frame in data['frames']:
-                pose = np.array(frame['transform_matrix'])
-                bproc.camera.add_camera_pose(pose)
-    
-        bproc.camera.set_intrinsics_from_K_matrix(K, IMG_WIDTH, IMG_HEIGHT)
-        data = bproc.renderer.render_segmap(map_by=['instance', 'cp_instance_id'], 
-                                            default_values={'cp_instance_id': 0})
-        
-        seg_dir = os.path.join(args.render_root, 'seg', scene_name)
-        os.makedirs(seg_dir, exist_ok=True)
-        bproc.writer.write_hdf5(seg_dir, data)
-
-    elif args.mode == 'depth':
-        # Render depth images
-        scene_name = f'3dfront_{args.scene_idx:04d}_{args.room_idx:02d}'
-        poses_file = os.path.join(args.pose_dir, scene_name, 'train', 'transforms.json')
-        with open(poses_file) as f:
-            data = json.load(f)
-            for frame in data['frames']:
-                pose = np.array(frame['transform_matrix'])
-                bproc.camera.add_camera_pose(pose)
-    
-        bproc.camera.set_intrinsics_from_K_matrix(K, IMG_WIDTH, IMG_HEIGHT)
-
-        bproc.renderer.set_max_amount_of_samples(1)
-        bproc.renderer.set_noise_threshold(0)
-        bproc.renderer.set_denoiser(None)
-        bproc.renderer.set_light_bounces(1, 0, 0, 1, 0, 8, 0)
-        bproc.renderer.enable_depth_output(activate_antialiasing=False)
-
-        data = bproc.renderer.render()
-        
-        depth_dir = os.path.join(args.render_root, 'depth', scene_name)
-        os.makedirs(depth_dir, exist_ok=True)
-        bproc.writer.write_hdf5(depth_dir, {'depth': data['depth']})
-
+    if len(cached_img_paths) > 0 and True:
+        # use cached overview images
+        for img_path in sorted(cached_img_paths):
+            imgs.append(cv2.imread(img_path))
+    else:
+        # render overview images
+        imgs = render_poses(poses, overview_dir)
+        os.makedirs(cache_dir, exist_ok=True)
+        for i, img in enumerate(imgs):
+            cv2.imwrite(join(cache_dir, f'raw_{i}.jpg'), img)
 
 if __name__ == '__main__':
     main()
