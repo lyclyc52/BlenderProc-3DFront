@@ -127,7 +127,11 @@ def generate_four_corner_poses(room_bbox_min, room_bbox_max, room_objs_dict, roo
     x1, y1, x2, y2 = corners[0][0], corners[0][1], corners[1][0], corners[1][1]
     at = [(x1+x2)/2, (y1+y2)/2, 1.2]
     locs = [[x1, y1, 2], [x1, y2, 2], [x2, y1, 2], [x2, y2, 2]]
-    c2ws = []
+    camera_dict = {
+        "c2w": [],
+        "camera_pos": [],
+        "camera_lookat": []
+    }
     for pos in locs:
         cam2world_matrix = c2w_from_loc_and_at(pos, at)
         count = 0
@@ -139,8 +143,10 @@ def generate_four_corner_poses(room_bbox_min, room_bbox_max, room_objs_dict, roo
             if count >= 10:
                 break
         if count < 10:
-            c2ws.append(cam2world_matrix)
-    return c2ws
+            camera_dict["c2w"].append(cam2world_matrix)
+            camera_dict["camera_pos"].append(pos)
+            camera_dict["camera_lookat"].append(at)
+    return camera_dict
 
 def pos_in_bbox(pos, bbox):
     """
@@ -398,9 +404,8 @@ def main():
     args = parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-    
 
-    dst_dir = join(args.render_root, f"{args.save_name}_{args.room_idx:02d}")
+    dst_dir = join(args.render_root, f"{args.save_name}")
     os.makedirs(dst_dir, exist_ok=True)
 
     construct_scene_list()
@@ -427,18 +432,23 @@ def main():
     room_objs_dict = filter_objs_in_dict(json_path, room_objs_dict)
 
     
-    with open(join(dst_dir, 'data_info.json'), 'w') as f:
-        json.dump(data_info, f, indent=4)
+
 
     overview_dir = os.path.join(dst_dir, 'overview')
     os.makedirs(overview_dir, exist_ok=True)
-    poses = generate_four_corner_poses(room_bbox_min, room_bbox_max, room_objs_dict, room_bbox)
+    camera_dict = generate_four_corner_poses(room_bbox_min, room_bbox_max, room_objs_dict, room_bbox)
+    poses = camera_dict["c2w"]
+    camera_dict["c2w"] = [i.tolist() for i in camera_dict["c2w"]]
 
     cache_dir = join(dst_dir, 'overview/raw')
     cached_img_paths = glob.glob(cache_dir+'/*')
     imgs = []
-    # save the poses to npy
-    np.save(join(dst_dir, 'overview/poses.npy'), poses)
+    # convert camera_dict to json
+    if not os.path.exists(join(dst_dir, 'data_info.json')):
+        with open(join(dst_dir, 'data_info.json'), 'w') as f:
+            json.dump(data_info, f, indent=4)
+    with open(join(dst_dir, 'camera_dict.json'), 'w') as f:
+        json.dump(camera_dict, f, indent=4)
 
     if len(cached_img_paths) > 0 and True:
         # use cached overview images

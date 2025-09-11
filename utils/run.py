@@ -53,6 +53,6 @@ def modify_room_json(args):
         json.dump(data, f, indent=4)
 
 if __name__ == "__main__":
-    generate_prompt()
-    # modify_room_json()
+    # generate_prompt()
+    modify_room_json()
     

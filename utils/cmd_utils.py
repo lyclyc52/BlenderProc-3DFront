@@ -5,7 +5,7 @@ import torch
 from transformers import CLIPTokenizer, CLIPModel
 from typing import List, Tuple, Optional, Dict, Any
 import os
-
+import pdb
 
 from obj_utils import parse_obj_file, calculate_bounding_box
 
@@ -149,11 +149,11 @@ def select_category_with_clip(
 class ModifyRoomJson:
     def change(self, data, command_args):
         # delete the space in the command_args
-        obj_name = command_args[0].replace(' ', '')
+        obj_id = command_args[0].replace(' ', '')
         pos = command_args[1].replace(' ', '').split(',')
         rot = command_args[2].replace(' ', '').split(',')
         for obj in data['scene']['room'][0]['children']:
-            if obj['ref'] == obj_name:
+            if obj['instanceid'] == obj_id:
                 obj['pos'] = [float(p) for p in pos]
                 obj['rot'] = [float(r) for r in rot]
         return data
@@ -226,5 +226,62 @@ class ModifyRoomJson:
         data['scene']['room'][0]['children'].append(new_obj)
 
         return data
-
     
+    def delete(self, data, command_args):
+        obj_name = command_args[0].replace(' ', '')
+        ref_name = None
+        for obj in data['scene']['room'][0]['children']:
+            if obj['instanceid'] == obj_name:
+                ref_name = obj['ref']
+                data['scene']['room'][0]['children'].remove(obj)
+                break
+        # check if the ref_name still is used in the json file
+        if ref_name is not None:
+            is_used = False
+            for obj in data['scene']['room'][0]['children']:
+                if obj['ref'] == ref_name:
+                    is_used = True
+                    break
+            if not is_used:
+                for obj in data['furniture']:
+                    if obj['jid'] == ref_name:
+                        data['furniture'].remove(obj)
+        return data
+    
+    def swap(self, data, command_args):
+        obj_id_1 = command_args[0].replace(' ', '')
+        obj_id_2 = command_args[1].replace(' ', '')
+        new_child_list = []
+        for obj in data['scene']['room'][0]['children']:
+            if obj['instanceid'] == obj_id_1:
+                obj_1 = obj
+            elif obj['instanceid'] == obj_id_2:
+                obj_2 = obj
+            else:
+                new_child_list.append(obj)
+        pos_1, rot_1 = obj_1['pos'], obj_1['rot']
+        pos_2, rot_2 = obj_2['pos'], obj_2['rot']
+        obj_1['pos'] = pos_2
+        obj_1['rot'] = rot_2
+        obj_2['pos'] = pos_1
+        obj_2['rot'] = rot_1
+        new_child_list.append(obj_1)
+        new_child_list.append(obj_2)
+        data['scene']['room'][0]['children'] = new_child_list
+        return data
+                
+            
+    def replace(self, data, command_args):
+        obj_name = command_args[1].replace(' ', '')
+        obj_id = command_args[0].replace(' ', '')
+        ref_obj = None
+        for obj in data['scene']['room'][0]['children']:
+            if obj['instanceid'] == obj_id:
+                ref_obj = obj
+                break
+        pos = ', '.join([str(p) for p in ref_obj['pos']])
+        rot = ', '.join([str(r) for r in ref_obj['rot']])
+        if ref_obj is not None:
+            data = self.delete(data, [command_args[0]])
+            data = self.add(data, [obj_name, pos, rot])
+        return data

@@ -6,17 +6,15 @@ import os
 import pdb
 SCENE_DATA_ROOT = "/mnt/afs/liuyichen/repo/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/3D-FRONT"
 ROOM_PROMPT = [
-"""
-# Room Design Modification Prompt
+"""# Room Design Modification Prompt
 
 ## Task Overview
 You are an expert interior designer specializing in room modifications. Your task is to analyze a JSON representation of a well-designed master bedroom and suggest specific modifications using standardized commands. The room dimensions are {x}m (x) × {y}m (y) × {z}m (z). The json file is shown below:
 ```json
 {room_json}
-```
-""",
-"""
-## Available Commands
+```""",
+
+"""## Available Commands
 You must use one of the following command formats:
 
 1. **Add an object**
@@ -27,38 +25,100 @@ You must use one of the following command formats:
 
 2. **Delete an object**
    ```
-   delete | {object_reference_id}
+   delete | {instanceid}
    ```
-   Example: `delete | 6920/model`
+   Example: `delete | furniture/56`
 
 3. **Swap two objects**
    ```
-   swap | {object_reference_id_1} | {object_reference_id_2}
+   swap | {instanceid_1} | {instanceid_2}
    ```
-   Example: `swap | 7882/model | 26791533265579077/1`
+   Example: `swap | furniture/256 | furniture/250`
 
 4. **Reposition/rotate an object**
    ```
-   change | {object_reference_id} | {new_x, new_y, new_z_position} | {new_rotation_values}
+   change | {instanceid} | {new_x, new_y, new_z_position} | {new_rotation_values}
    ```
-   Example: `change | 7a699d4f-6614-42ba-9477-a75c8f4f03dd/28805838 | -1.7457, 2.3932, -2.7761 | 0, 0, 0, 1`
+   Example: `change | furniture/30 | -1.7457, 2.3932, -2.7761 | 0, 0, 0, 1`
 
 5. **Replace an object**
    ```
-   replace | {object_reference_id} | {new_object_category}
+   replace | {instanceid} | {new_object_category}
    ```
-   Example: `replace | 7857/model | table`
+   Example: `replace | furniture/56 | table`
 
 ## Design Guidelines
 - Only modify furniture objects; leave structural elements (walls, floors, ceilings) unchanged
 - Maintain realistic room arrangement (avoid object overlaps and placing items outside room boundaries)
 - Consider typical master bedroom functionality and aesthetics
 
-Your response should contain only the command in the specified format, with no additional explanations or commentary.
-"""
+Your response should contain only the command in the specified format, with no additional explanations or commentary. Now start to generate five commands."""
 ]
 
 
+# OUTPUT_PROMPT = """
+# The room is modified according to the prompt. The original json file is shown below:
+# ```json
+# {room_json}
+# ```
+# The modification command is "{command}". Now the image of the room after modification is given. The camera of the image is positioned at {camera_position} and looking at {camera_target}.
+
+# Now you need to provide instructions on how to convert the current room back to the original room. The instructions should be natural language. Your response should contain only the instructions, with no additional explanations or commentary. 
+
+# Here are some examples of the instructions:
+# - Add a table in the center of the room.
+# - Delete the abnormal chair.
+# - Swap the table and the chair.
+# - Move bed to the left
+# - Place the sofa at [1.0, 1.0, 1.0]
+
+# Your response should contain only the instructions, with no additional explanations or commentary.
+# """
+
+
+
+OUTPUT_PROMPT = [
+"""This room is modified from the following json file:
+```json
+{room_json}
+```
+The modification command is "{command}". Now the image of the room after modification is given. The camera of the image is positioned at {camera_position} and looking at {camera_target}.
+Now you need to provide detailed instructions on how to convert the current room back to the original room. The instructions should be natural language. Your response should contain only the instructions, with no additional explanations or commentary.""",
+
+
+"""# Room Restoration Task
+
+## Context
+You are given:
+1. A JSON representation of the modified room state: 
+```json
+{room_json}
+```
+2. A modification command that was applied to this room (`{command}`)
+3. An image showing the room after modification
+4. The camera position (`{camera_position}`) and target (`{camera_target}`) for the image
+
+## Your Task
+Analyze the original room JSON and the modified room image to determine what changes were made. Then provide clear, natural language instructions that would revert the modified room back to its original state.
+
+## Requirements
+- Your instructions must be specific and actionable
+- Provide only the restoration instructions with no explanations or commentary
+- Use natural language commands that describe the necessary actions
+- Focus on the differences between the original and modified rooms
+- Avoid absolute positions and orientation if possible. Try to use relative positions and orientation.
+
+## Examples of Valid Instructions
+- "Add a wooden table in the center of the room."
+- "Remove the red chair from the corner."
+- "Swap the positions of the bookshelf and the desk."
+- "Move the bed 2 meters to the left."
+- "Rotate the sofa to face the window."
+- "Place the lamp at coordinates [1.0, 0.5, 2.0]."
+
+## Output Format
+Provide only the restoration instructions as plain text, with no additional commentary, explanations, or reasoning."""
+]
 def render_room_dataset_improved_mat_of_single_scene(scene_id:str):
     with open(os.path.join(SCENE_DATA_ROOT, f"{scene_id}.json"), "r") as f:
         scene_data = json.load(f)
@@ -83,15 +143,41 @@ def render_room_dataset_improved_mat_of_single_scene(scene_id:str):
         subprocess.run(command, shell=True, env=env)
 
 
-def get_llm_prompt(room_json, room_size):
-   x,y,z = room_size
+def get_llm_json_command_prompt(room_json):
    with open(room_json, "r") as f:
       room_json = json.load(f)
-   prompt = ROOM_PROMPT[0].format(room_json=room_json, x=x, y=y, z=z) + ROOM_PROMPT[1]
+   x,y,z = room_json["room_size"]
+   prompt = ROOM_PROMPT[0].format(room_json=room_json, x=x, y=y, z=z) +'\n' + ROOM_PROMPT[1]
+   print(prompt)
+   return prompt
+
+def get_llm_final_instruction_prompt(room_json, command, camera_position, camera_target):
+   with open(room_json, "r") as f:
+      room_json = json.load(f)
+   prompt = OUTPUT_PROMPT[1].format(room_json=room_json["scene"]["room"][0], 
+                                    command=command,
+                                    camera_position=camera_position,
+                                    camera_target=camera_target)
    print(prompt)
    return prompt
 
 if __name__ == "__main__":
    room_json = "/mnt/afs/liuyichen/repo/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/0aa95eb8-4c86-4696-8022-7708bab5448e_room_04/room_info.json"
-   room_size = [10, 10, 10]
-   get_llm_prompt(room_json, room_size)
+   prompt = get_llm_json_command_prompt(room_json)
+   with open("command_prompt.txt", "w") as f:
+      f.write(prompt)
+   
+   # room_json = "FRONT3D_render/finished/0aa95eb8-4c86-4696-8022-7708bab5448e_04/data_info.json"
+   # command = "add | nightstand | -1.6, 0.0, -0.5 | 0, 0, 0, 1"
+   # pose_json = "FRONT3D_render/finished/0aa95eb8-4c86-4696-8022-7708bab5448e_modified_00/camera_dict.json"
+   # with open(pose_json, "r") as f:
+   #    pose_dict = json.load(f)
+   # camera_position = pose_dict["camera_pos"][1]
+   # camera_position = [camera_position[0], camera_position[2], camera_position[1]]
+   # camera_target = pose_dict["camera_lookat"][1]
+   # camera_target = [camera_target[0], camera_target[2], camera_target[1]]
+   # prompt = get_llm_final_instruction_prompt(room_json, command, camera_position, camera_target)
+   # # save the prompt to a file
+   # with open("prompt.txt", "w") as f:
+   #    f.write(prompt)
+   
