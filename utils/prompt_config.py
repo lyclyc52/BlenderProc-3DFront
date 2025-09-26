@@ -94,9 +94,13 @@ You are given:
 ```json
 {room_json}
 ```
-2. A modification command that was applied to this room (`{command}`)
-3. An image showing the room after modification
-4. The camera position (`{camera_position}`) and target (`{camera_target}`) for the image
+2. A JSON representation of the original room state:
+```json
+{original_room_json}
+```
+3. A modification command that was applied to this room (`{command}`)
+4. An image showing the room after modification
+5. The camera position (`{camera_position}`) and target (`{camera_target}`) for the image
 
 ## Your Task
 Analyze the original room JSON and the modified room image to determine what changes were made. Then provide clear, natural language instructions that would revert the modified room back to its original state.
@@ -107,6 +111,7 @@ Analyze the original room JSON and the modified room image to determine what cha
 - Use natural language commands that describe the necessary actions
 - Focus on the differences between the original and modified rooms
 - Avoid absolute positions and orientation if possible. Try to use relative positions and orientation.
+- Avoid specifying the specific object name. Use the object category instead.
 
 ## Examples of Valid Instructions
 - "Add a wooden table in the center of the room."
@@ -151,21 +156,44 @@ def get_llm_json_command_prompt(room_json):
    print(prompt)
    return prompt
 
-def get_llm_final_instruction_prompt(room_json, command, camera_position, camera_target):
-   with open(room_json, "r") as f:
+def parse_args():
+   parser = argparse.ArgumentParser()
+   parser.add_argument("--modified_json_path", type=str, default="FRONT3D_render/0aa95eb8-4c86-4696-8022-7708bab5448e/data_info.json")
+   parser.add_argument("--original_json_path", type=str, default="FRONT3D_render/0aa95eb8-4c86-4696-8022-7708bab5448e/data_info.json")
+   parser.add_argument("--command", type=str, default="add | nightstand | -1.6, 0.0, -0.5 | 0, 0, 0, 1")
+   parser.add_argument("--pose_json", type=str, default="FRONT3D_render/0aa95eb8-4c86-4696-8022-7708bab5448e/camera_dict.json")
+   parser.add_argument("--save_path", type=str, default="prompt.txt")
+   parser.add_argument("--view_id", type=int, default=0)
+   return parser.parse_args()
+
+def get_llm_final_instruction_prompt():
+   args = parse_args()
+   with open(args.pose_json, "r") as f:
+      pose_dict = json.load(f)
+   camera_position = pose_dict["camera_pos"][args.view_id]
+   camera_position = [camera_position[0], camera_position[2], camera_position[1]]
+   camera_target = pose_dict["camera_lookat"][args.view_id]
+   camera_target = [camera_target[0], camera_target[2], camera_target[1]]
+   with open(args.modified_json_path, "r") as f:
       room_json = json.load(f)
-   prompt = OUTPUT_PROMPT[1].format(room_json=room_json["scene"]["room"][0], 
-                                    command=command,
+   with open(args.original_json_path, "r") as f:
+      original_room_json = json.load(f)
+   prompt = OUTPUT_PROMPT[1].format(room_json=room_json["scene"]["room"][0],
+                                    original_room_json=original_room_json["scene"]["room"][0],
+                                    command=args.command,
                                     camera_position=camera_position,
                                     camera_target=camera_target)
    print(prompt)
+   with open(args.save_path, "w") as f:
+      f.write(prompt)
    return prompt
 
 if __name__ == "__main__":
-   room_json = "/mnt/afs/liuyichen/repo/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/0aa95eb8-4c86-4696-8022-7708bab5448e_room_04/room_info.json"
-   prompt = get_llm_json_command_prompt(room_json)
-   with open("command_prompt.txt", "w") as f:
-      f.write(prompt)
+   get_llm_final_instruction_prompt()
+   # room_json = "/mnt/afs/liuyichen/repo/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/0aa95eb8-4c86-4696-8022-7708bab5448e_room_04/room_info.json"
+   # prompt = get_llm_json_command_prompt(room_json)
+   # with open("command_prompt.txt", "w") as f:
+   #    f.write(prompt)
    
    # room_json = "FRONT3D_render/finished/0aa95eb8-4c86-4696-8022-7708bab5448e_04/data_info.json"
    # command = "add | nightstand | -1.6, 0.0, -0.5 | 0, 0, 0, 1"
